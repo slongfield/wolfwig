@@ -1,0 +1,6 @@
+[package]
+name = "wolfwig"
+version = "0.1.0"
+authors = ["Stephen Longfield <stephen.longfield@gmail.com>"]
+
+[dependencies]
