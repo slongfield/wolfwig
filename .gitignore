@@ -11,3 +11,9 @@ Cargo.lock
 
 /target
 **/*.rs.bk
+
+# Don't commit ViM Swap files
+*.swp
+
+# ¬.¬
+/roms/
