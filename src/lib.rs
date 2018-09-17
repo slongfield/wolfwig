@@ -9,6 +9,7 @@ mod cpu;
 pub struct Wolfwig {
     rom: Vec<u8>,
     header: cpu::header::Header,
+    cpu: cpu::cpu::Cpu,
 }
 
 impl Wolfwig {
@@ -23,10 +24,16 @@ impl Wolfwig {
         Ok(Wolfwig {
             rom: buffer,
             header: header,
+            // TODO(slongfield): Ewww...
+            cpu: cpu::cpu::Cpu::new(),
         })
     }
 
     pub fn print_header(&self) {
         println!("{}", self.header);
+    }
+
+    pub fn dump_instructions(&self, start_pc: usize, end_pc: usize) {
+        self.cpu.dump_instructions(&self.rom, start_pc, end_pc);
     }
 }

@@ -1,3 +1,4 @@
+use cpu;
 use std::fmt;
 use std::str;
 
@@ -41,7 +42,7 @@ impl Header {
             title: str::from_utf8(&bytes[TITLE.0..(TITLE.1)])
                 .unwrap()
                 .to_string(),
-            manufacturer: bytes_to_u32(&bytes[MANUFACTURER.0..(MANUFACTURER.1 + 1)]),
+            manufacturer: cpu::bytes_to_u32(&bytes[MANUFACTURER.0..(MANUFACTURER.1 + 1)]),
             gcb: bytes[GCB.0] != 0,
             licensee: decode_license(&bytes),
             sgb: bytes[SGB.0] != 0,
@@ -57,28 +58,10 @@ impl Header {
     }
 }
 
-fn bytes_to_u32(bytes: &[u8]) -> u32 {
-    let mut outp: u32 = 0;
-    for byte in bytes {
-        outp = outp << 8;
-        outp |= *byte as u32;
-    }
-    outp
-}
-
-fn bytes_to_u16(bytes: &[u8]) -> u16 {
-    let mut outp: u16 = 0;
-    for byte in bytes {
-        outp = outp << 8;
-        outp |= *byte as u16;
-    }
-    outp
-}
-
 ///! Decodes the licensee codes.
 /// TODO(slongfield): Transcribe the full list.
 fn decode_license(bytes: &Vec<u8>) -> String {
-    match bytes_to_u16(&bytes[LICENSEE.0..(LICENSEE.1 + 1)]) {
+    match cpu::bytes_to_u16(&bytes[LICENSEE.0..(LICENSEE.1 + 1)]) {
         0x00 => "None".to_string(),
         0x01 => "Nintendo".to_string(),
         0x33 => decode_extended_license(&bytes),
@@ -90,7 +73,7 @@ fn decode_license(bytes: &Vec<u8>) -> String {
 /// TODO(slongfield): The decode here seems to be missing some documentation, figure out the
 /// algorithm and document. This works for now, though.
 fn decode_extended_license(bytes: &Vec<u8>) -> String {
-    match bytes_to_u16(&bytes[NEW_LICENSEE.0..(NEW_LICENSEE.1 + 1)]) {
+    match cpu::bytes_to_u16(&bytes[NEW_LICENSEE.0..(NEW_LICENSEE.1 + 1)]) {
         0x3031 => "Nintendo (new)".to_string(),
         code => format!("Other Extended License: 0x{:x}", code),
     }
