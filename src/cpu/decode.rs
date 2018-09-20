@@ -1,8 +1,8 @@
 use std::fmt;
 
 use cpu;
-use cpu::registers::ShortReg::{self, A, B, C, D, E, H, L};
-use cpu::registers::WideReg::{self, AF, BC, DE, HL, PC, SP};
+use cpu::registers::Reg16::{self, AF, BC, DE, HL, SP};
+use cpu::registers::Reg8::{self, A, B, C, D, E, H, L};
 
 ///! Op
 /// TODO(slongfield): Encode the microops that make up these instructions, and the flags that
@@ -11,16 +11,16 @@ pub enum Op {
     Nop,
     AluOp(AluOp),
     Jump(Data),
-    Move(ShortReg, ShortReg),
-    Set(ShortReg, u8),
-    SetWide(WideReg, u16),
-    Load(ShortReg, Address),
-    Store(Address, ShortReg),
-    WideStore(Address, WideReg),
-    StoreAndIncrement(Address, ShortReg),
-    StoreAndDecrement(Address, ShortReg),
-    LoadAndIncrement(ShortReg, Address),
-    LoadAndDecrement(ShortReg, Address),
+    Move(Reg8, Reg8),
+    Set(Reg8, u8),
+    SetWide(Reg16, u16),
+    Load(Reg8, Address),
+    Store(Address, Reg8),
+    WideStore(Address, Reg16),
+    StoreAndIncrement(Address, Reg8),
+    StoreAndDecrement(Address, Reg8),
+    LoadAndIncrement(Reg8, Address),
+    LoadAndDecrement(Reg8, Address),
     Unknown(u8),
 }
 
@@ -51,26 +51,26 @@ pub enum AluOp {
     AddWithCarry(Data),
     And(Data),     // And with accumulator.
     Compare(Data), // Compare with accumulator.
-    Dec(ShortReg),
-    Inc(ShortReg),
+    Dec(Reg8),
+    Inc(Reg8),
     Or(Data), // Or with accumulator.
     RotateLeftIntoCarry,
     RotateLeftThroughCarry,
-    RotateRegLeftIntoCarry(ShortReg),
-    RotateRegLeftThroughCarry(ShortReg),
-    RotateRegRightIntoCarry(ShortReg),
-    RotateRegRightThroughCarry(ShortReg),
+    RotateRegLeftIntoCarry(Reg8),
+    RotateRegLeftThroughCarry(Reg8),
+    RotateRegRightIntoCarry(Reg8),
+    RotateRegRightThroughCarry(Reg8),
     RotateRightIntoCarry,
     RotateRightThroughCarry,
-    RotateWideRegLeftIntoCarry(WideReg),
-    RotateWideRegLeftThroughCarry(WideReg),
-    RotateWideRegRightIntoCarry(WideReg),
-    RotateWideRegRightThroughCarry(WideReg),
+    RotateReg16LeftIntoCarry(Reg16),
+    RotateReg16LeftThroughCarry(Reg16),
+    RotateReg16RightIntoCarry(Reg16),
+    RotateReg16RightThroughCarry(Reg16),
     Sub(Data), // Subtract from accumulator.
     SubWithCarry(Data),
-    WideAdd(WideReg, WideReg),
-    WideDec(WideReg),
-    WideInc(WideReg),
+    WideAdd(Reg16, Reg16),
+    WideDec(Reg16),
+    WideInc(Reg16),
     Xor(Data), // Xor with accumulator.
     Unknown,
 }
@@ -78,31 +78,31 @@ pub enum AluOp {
 impl fmt::Display for AluOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AluOp::Add(Data) => write!(f, "ADD A {:?}", Data),
-            AluOp::AddWithCarry(Data) => write!(f, "ADC {:?}", Data),
-            AluOp::And(Data) => write!(f, "AND {:?}", Data),
-            AluOp::Compare(Data) => write!(f, "CMP {:?}", Data),
-            AluOp::Dec(ShortReg) => write!(f, "DEC {:?}", ShortReg),
-            AluOp::Inc(ShortReg) => write!(f, "INC {:?}", ShortReg),
-            AluOp::Or(Data) => write!(f, "OR {:?}", Data),
+            AluOp::Add(data) => write!(f, "ADD A {:?}", data),
+            AluOp::AddWithCarry(data) => write!(f, "ADC {:?}", data),
+            AluOp::And(data) => write!(f, "AND {:?}", data),
+            AluOp::Compare(data) => write!(f, "CMP {:?}", data),
+            AluOp::Dec(reg) => write!(f, "DEC {:?}", reg),
+            AluOp::Inc(reg) => write!(f, "INC {:?}", reg),
+            AluOp::Or(data) => write!(f, "OR {:?}", data),
             AluOp::RotateLeftIntoCarry => write!(f, "RLCA"),
             AluOp::RotateLeftThroughCarry => write!(f, "RLC"),
-            AluOp::RotateRegLeftIntoCarry(ShortReg) => write!(f, "RLC {:?}", ShortReg),
-            AluOp::RotateRegLeftThroughCarry(ShortReg) => write!(f, "RL {:?}", ShortReg),
-            AluOp::RotateRegRightIntoCarry(ShortReg) => write!(f, "RRC {:?}", ShortReg),
-            AluOp::RotateRegRightThroughCarry(ShortReg) => write!(f, "RR {:?}", ShortReg),
+            AluOp::RotateRegLeftIntoCarry(reg) => write!(f, "RLC {:?}", reg),
+            AluOp::RotateRegLeftThroughCarry(reg) => write!(f, "RL {:?}", reg),
+            AluOp::RotateRegRightIntoCarry(reg) => write!(f, "RRC {:?}", reg),
+            AluOp::RotateRegRightThroughCarry(reg) => write!(f, "RR {:?}", reg),
             AluOp::RotateRightIntoCarry => write!(f, "RRCA"),
             AluOp::RotateRightThroughCarry => write!(f, "RRA"),
-            AluOp::RotateWideRegLeftIntoCarry(WideReg) => write!(f, "RLC {:?}", WideReg),
-            AluOp::RotateWideRegLeftThroughCarry(WideReg) => write!(f, "RL {:?}", WideReg),
-            AluOp::RotateWideRegRightIntoCarry(WideReg) => write!(f, "RRC {:?}", WideReg),
-            AluOp::RotateWideRegRightThroughCarry(WideReg) => write!(f, "RR {:?}", WideReg),
-            AluOp::Sub(Data) => write!(f, "SUB {:?}", Data),
-            AluOp::SubWithCarry(Data) => write!(f, "SBC {:?}", Data),
-            AluOp::WideAdd(WideRegX, WideRegY) => write!(f, "ADD {:?} {:?}", WideRegX, WideRegY),
-            AluOp::WideDec(WideReg) => write!(f, "DEC {:?}", WideReg),
-            AluOp::WideInc(WideReg) => write!(f, "INC {:?}", WideReg),
-            AluOp::Xor(Data) => write!(f, "XOR {:?}", Data),
+            AluOp::RotateReg16LeftIntoCarry(reg) => write!(f, "RLC {:?}", reg),
+            AluOp::RotateReg16LeftThroughCarry(reg) => write!(f, "RL {:?}", reg),
+            AluOp::RotateReg16RightIntoCarry(reg) => write!(f, "RRC {:?}", reg),
+            AluOp::RotateReg16RightThroughCarry(reg) => write!(f, "RR {:?}", reg),
+            AluOp::Sub(data) => write!(f, "SUB {:?}", data),
+            AluOp::SubWithCarry(data) => write!(f, "SBC {:?}", data),
+            AluOp::WideAdd(reg_x, reg_y) => write!(f, "ADD {:?} {:?}", reg_x, reg_y),
+            AluOp::WideDec(reg) => write!(f, "DEC {:?}", reg),
+            AluOp::WideInc(reg) => write!(f, "INC {:?}", reg),
+            AluOp::Xor(data) => write!(f, "XOR {:?}", data),
             AluOp::Unknown => write!(f, "Unknown ALU OP!!"),
         }
     }
@@ -111,15 +111,15 @@ impl fmt::Display for AluOp {
 ///! Data for use in ops.
 #[derive(Debug)]
 pub enum Data {
-    Register8(ShortReg),
-    Register16(WideReg),
+    Register8(Reg8),
+    Register16(Reg16),
     Immediate8(u8),
     Immediate16(u16),
 }
 
 #[derive(Debug)]
 pub enum Address {
-    Register16(WideReg),
+    Register16(Reg16),
     Immediate16(u16),
     IoImmedite(u8),
     IoRegister, // Always register C.
@@ -136,14 +136,12 @@ impl fmt::Display for Data {
 
 ///! Decode takes the ROM and current PC, and returns the Op a that PC, as well as the number of
 ///! bytes in that op, and the number of cycles it runs for.
-pub fn decode(rom: &Vec<u8>, pc: usize) -> (Op, usize, usize) {
-    match decode_alu(&rom, pc) {
-        Some((Op, size, time)) => return (Op, size, time),
-        None => (),
+pub fn decode(rom: &[u8], pc: usize) -> (Op, usize, usize) {
+    if let Some((op, size, time)) = decode_alu(&rom, pc) {
+        return (op, size, time);
     }
-    match decode_load(&rom, pc) {
-        Some((Op, size, time)) => return (Op, size, time),
-        None => (),
+    if let Some((op, size, time)) = decode_load(&rom, pc) {
+        return (op, size, time);
     }
     match rom[pc] {
         0x00 => (Op::Nop, 1, 1),
@@ -156,7 +154,7 @@ pub fn decode(rom: &Vec<u8>, pc: usize) -> (Op, usize, usize) {
 }
 
 ///! Decode ALU operations.
-fn decode_alu(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
+fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
     let inst = match rom[pc] {
         0x03 => (AluOp::WideInc(BC), 1, 1),
 
@@ -284,7 +282,7 @@ fn decode_alu(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode move, load, and store operations.
-fn decode_load(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
+fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
     let inst = match rom[pc] {
         0x01 => (
             Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
@@ -296,12 +294,12 @@ fn decode_load(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
             3,
             3,
         ),
-        0x11 => (
+        0x21 => (
             Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
         ),
-        0x11 => (
+        0x31 => (
             Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
@@ -315,7 +313,7 @@ fn decode_load(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
         0x06 => (Op::Set(B, rom[pc + 1]), 2, 2),
         0x16 => (Op::Set(D, rom[pc + 1]), 2, 2),
         0x26 => (Op::Set(H, rom[pc + 1]), 2, 2),
-        0x36 => (Op::SetWide(HL, rom[pc + 1] as u16), 2, 2),
+        0x36 => (Op::SetWide(HL, u16::from(rom[pc + 1])), 2, 2),
 
         0x08 => {
             let addr = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
@@ -323,14 +321,14 @@ fn decode_load(rom: &Vec<u8>, pc: usize) -> Option<(Op, usize, usize)> {
         }
 
         0x0E => (Op::Set(C, rom[pc + 1]), 2, 2),
-        0x0E => (Op::Set(E, rom[pc + 1]), 2, 2),
-        0x0E => (Op::Set(L, rom[pc + 1]), 2, 2),
-        0x0E => (Op::Set(A, rom[pc + 1]), 2, 2),
+        0x1E => (Op::Set(E, rom[pc + 1]), 2, 2),
+        0x2E => (Op::Set(L, rom[pc + 1]), 2, 2),
+        0x3E => (Op::Set(A, rom[pc + 1]), 2, 2),
 
         0x0A => (Op::Load(A, Address::Register16(BC)), 1, 2),
         0x1A => (Op::Load(A, Address::Register16(DE)), 1, 2),
         0x2A => (Op::LoadAndIncrement(A, Address::Register16(HL)), 1, 2),
-        0x2A => (Op::LoadAndDecrement(A, Address::Register16(HL)), 1, 2),
+        0x3A => (Op::LoadAndDecrement(A, Address::Register16(HL)), 1, 2),
 
         0x40 => (Op::Move(B, B), 1, 1),
         0x41 => (Op::Move(B, C), 1, 1),

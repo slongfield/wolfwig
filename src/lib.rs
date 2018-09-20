@@ -9,7 +9,7 @@ mod cpu;
 pub struct Wolfwig {
     rom: Vec<u8>,
     header: cpu::header::Header,
-    cpu: cpu::cpu::Cpu,
+    cpu: cpu::Cpu,
 }
 
 impl Wolfwig {
@@ -19,13 +19,12 @@ impl Wolfwig {
         let read = file.read_to_end(&mut buffer)?;
         println!("Read {:x} bytes from {:?}", read, filename);
 
-        let header = cpu::header::Header::new(&mut buffer);
+        let header = cpu::header::Header::new(&buffer);
 
         Ok(Wolfwig {
             rom: buffer,
-            header: header,
-            // TODO(slongfield): Ewww...
-            cpu: cpu::cpu::Cpu::new(),
+            header,
+            cpu: cpu::Cpu::new(),
         })
     }
 

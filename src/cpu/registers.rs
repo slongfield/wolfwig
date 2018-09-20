@@ -1,6 +1,6 @@
 // 8-bit registers.
 #[derive(Debug)]
-pub enum ShortReg {
+pub enum Reg8 {
     A,
     B,
     C,
@@ -12,7 +12,7 @@ pub enum ShortReg {
 
 // 16-bit registers.
 #[derive(Debug)]
-pub enum WideReg {
+pub enum Reg16 {
     AF,
     BC,
     DE,

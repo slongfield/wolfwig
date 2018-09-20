@@ -36,7 +36,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(bytes: &Vec<u8>) -> Header {
+    pub fn new(bytes: &[u8]) -> Header {
         Header {
             nintendo: bytes[NINTENDO.0..(NINTENDO.1 + 1)].to_vec(),
             title: str::from_utf8(&bytes[TITLE.0..(TITLE.1)])
@@ -60,7 +60,7 @@ impl Header {
 
 ///! Decodes the licensee codes.
 /// TODO(slongfield): Transcribe the full list.
-fn decode_license(bytes: &Vec<u8>) -> String {
+fn decode_license(bytes: &[u8]) -> String {
     match cpu::bytes_to_u16(&bytes[LICENSEE.0..(LICENSEE.1 + 1)]) {
         0x00 => "None".to_string(),
         0x01 => "Nintendo".to_string(),
@@ -72,7 +72,7 @@ fn decode_license(bytes: &Vec<u8>) -> String {
 ///! Decode extended license code.
 /// TODO(slongfield): The decode here seems to be missing some documentation, figure out the
 /// algorithm and document. This works for now, though.
-fn decode_extended_license(bytes: &Vec<u8>) -> String {
+fn decode_extended_license(bytes: &[u8]) -> String {
     match cpu::bytes_to_u16(&bytes[NEW_LICENSEE.0..(NEW_LICENSEE.1 + 1)]) {
         0x3031 => "Nintendo (new)".to_string(),
         code => format!("Other Extended License: 0x{:x}", code),
@@ -93,16 +93,16 @@ fn decode_cartrigte_type(byte: u8) -> String {
 }
 
 ///! The Nintendo logo is stored in memory as tiles. Special-purpose renderer here, so it can run without any other dependencies.
-pub fn draw_nintendo(bytes: &Vec<u8>, f: &mut fmt::Formatter) -> fmt::Result {
+pub fn draw_nintendo(bytes: &[u8], f: &mut fmt::Formatter) -> fmt::Result {
     let mut bits: Vec<bool> = vec![];
     for byte in bytes.iter() {
-        for mask in BIT_MASKS.iter() {
+        for mask in &BIT_MASKS {
             bits.push(byte & mask != 0);
         }
     }
     let mut bitmap = [[false; 48]; 8];
     let mut bit_pos: usize = 0;
-    for y_base in [0, 4].iter() {
+    for y_base in &[0, 4] {
         for x_base in 0..12 {
             for y_offset in 0..4 {
                 for x_offset in 0..4 {
@@ -116,9 +116,9 @@ pub fn draw_nintendo(bytes: &Vec<u8>, f: &mut fmt::Formatter) -> fmt::Result {
             }
         }
     }
-    write!(
+    writeln!(
         f,
-        "\n{}\n",
+        "\n{}",
         bitmap
             .chunks(2)
             .map(|rows| rows[0]
@@ -139,17 +139,17 @@ pub fn draw_nintendo(bytes: &Vec<u8>, f: &mut fmt::Formatter) -> fmt::Result {
 impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         draw_nintendo(&self.nintendo, f)?;
-        write!(f, "\nTitle: {}\n", self.title)?;
-        write!(f, "Manufacturer Code: 0x{:x}\n", self.manufacturer)?;
-        write!(f, "Gameboy Color Game: {}\n", self.gcb)?;
-        write!(f, "Licensee: {}\n", self.licensee)?;
-        write!(f, "Super Gameboy Support: {}\n", self.sgb)?;
-        write!(f, "Cartridge type: {}\n", self.cartrigte_type)?;
-        write!(f, "ROM size: 0x{:02x}\n", self.rom_size)?;
-        write!(f, "RAM size: 0x{:02x}\n", self.ram_size)?;
-        write!(f, "ROM version: 0x{:02x}\n", self.rom_version)?;
-        write!(f, "Japan-only?: {}\n", self.destination_code)?;
-        write!(f, "Header checksum: 0x{:02x}\n", self.header_checksum)?;
-        write!(f, "Global checksum: 0x{:02x}\n", self.global_checksum)
+        writeln!(f, "\nTitle: {}", self.title)?;
+        writeln!(f, "Manufacturer Code: 0x{:x}", self.manufacturer)?;
+        writeln!(f, "Gameboy Color Game: {}", self.gcb)?;
+        writeln!(f, "Licensee: {}", self.licensee)?;
+        writeln!(f, "Super Gameboy Support: {}", self.sgb)?;
+        writeln!(f, "Cartridge type: {}", self.cartrigte_type)?;
+        writeln!(f, "ROM size: 0x{:02x}", self.rom_size)?;
+        writeln!(f, "RAM size: 0x{:02x}", self.ram_size)?;
+        writeln!(f, "ROM version: 0x{:02x}", self.rom_version)?;
+        writeln!(f, "Japan-only?: {}", self.destination_code)?;
+        writeln!(f, "Header checksum: 0x{:02x}", self.header_checksum)?;
+        writeln!(f, "Global checksum: 0x{:02x}", self.global_checksum)
     }
 }
