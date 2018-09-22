@@ -21,15 +21,18 @@ pub enum Reg16 {
     PC,
 }
 
-pub enum Flags {
+#[derive(Debug)]
+pub enum Flag {
     // True if the previous result was zero
     Zero,
+    NotZero,
     // True if the previous operation was subtract.
     Subtract,
     // True if the carry-out was true for the lower 4 bits of the previous op.
     HalfCarry,
     // True if the carry-out was true for the lower 8 bits of the previous op.
     Carry,
+    NotCarry,
 }
 
 ///! Structure that holds the current register values from the CPU.

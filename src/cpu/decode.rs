@@ -1,6 +1,7 @@
 use std::fmt;
 
 use cpu;
+use cpu::registers::Flag::{self, Carry, NotCarry, NotZero, Zero};
 use cpu::registers::Reg16::{self, AF, BC, DE, HL, SP};
 use cpu::registers::Reg8::{self, A, B, C, D, E, H, L};
 
@@ -9,8 +10,27 @@ use cpu::registers::Reg8::{self, A, B, C, D, E, H, L};
 /// they affect. Right now, mostly just doing this to display the instructions.
 pub enum Op {
     Nop,
+    Stop,
+    Halt,
+    EnableInterrupts,
+    DisableInterrupts,
+    Return,
+    ConditionalReturn(Flag),
+    ReturnAndEnableInterrupts,
+    Jump(Address),
+    ConditionalJump(Flag, u16),
+    Call(u16),
+    ConditionalCall(Flag, u16),
+    Reset(u16),
+    Push(Reg16),
+    Pop(Reg16),
+    SetIO(u8),  // Sets from A from 0xFF00+u8
+    ReadIO(u8), // Reads to A from 0xFF00+u8
+    SetIOC,     // Sets A from OxFF00+C
+    ReadIOC,    // Reads A from 0xFF00+C
     AluOp(AluOp),
-    Jump(Data),
+    JumpRelative(u8),
+    ConditionalJumpRelative(Flag, u8),
     Move(Reg8, Reg8),
     Set(Reg8, u8),
     SetWide(Reg16, u16),
@@ -27,19 +47,41 @@ pub enum Op {
 impl fmt::Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Op::Push(reg) => write!(f, "PUSH {:?}", reg),
+            Op::Pop(reg) => write!(f, "POP {:?}", reg),
+            Op::Call(address) => write!(f, "CALL 0x{:X}", address),
+            Op::ConditionalCall(flag, address) => write!(f, "CALL {:?},0x{:X}", flag, address),
             Op::Nop => write!(f, "NOP"),
+            Op::Stop => write!(f, "STOP"),
+            Op::Halt => write!(f, "HALT"),
+            Op::EnableInterrupts => write!(f, "EI"),
+            Op::DisableInterrupts => write!(f, "DI"),
+            Op::Return => write!(f, "RET"),
+            Op::ConditionalReturn(flag) => write!(f, "RET {:?}", flag),
+            Op::ReturnAndEnableInterrupts => write!(f, "RETI"),
+            Op::Jump(address) => write!(f, "JP ({:?})", address),
+            Op::ConditionalJump(flag, address) => write!(f, "JP {:?},({:?})", flag, address),
+            Op::JumpRelative(address) => write!(f, "JR ({:?})", address),
+            Op::ConditionalJumpRelative(flag, address) => {
+                write!(f, "JR {:?},0x{:X}", flag, address)
+            }
+            Op::Reset(offset) => write!(f, "RST {:X}H", offset),
+            Op::SetIO(offset) => write!(f, "LD A,0xFF00+0x{:X}", offset),
+            Op::ReadIO(offset) => write!(f, "LD 0xFF00+0x{:X}", offset),
+            Op::SetIOC => write!(f, "LD A,(FF00+C)"),
+            Op::ReadIOC => write!(f, "LD (FF00+C),A"),
             Op::AluOp(op) => write!(f, "{}", op),
-            Op::Jump(dest) => write!(f, "JP {}", dest),
+            Op::Jump(dest) => write!(f, "JP {:?}", dest),
             Op::Move(src, dest) => write!(f, "LD {:?} {:?}", src, dest),
-            Op::Set(dest, val) => write!(f, "LD {:?} 0x{:x}", dest, val),
-            Op::SetWide(dest, val) => write!(f, "LD {:?} 0x{:x}", dest, val),
+            Op::Set(dest, val) => write!(f, "LD {:?} 0x{:X}", dest, val),
+            Op::SetWide(dest, val) => write!(f, "LD {:?} 0x{:X}", dest, val),
             Op::Load(dest, addr) => write!(f, "LD {:?} ({:?})", dest, addr),
             Op::Store(addr, src) => write!(f, "LD ({:?}) {:?}", addr, src),
             Op::StoreAndIncrement(addr, src) => write!(f, "LD ({:?}+) {:?}", addr, src),
             Op::StoreAndDecrement(addr, src) => write!(f, "LD ({:?}-) {:?}", addr, src),
             Op::LoadAndIncrement(dest, addr) => write!(f, "LD {:?} ({:?}+)", dest, addr),
             Op::LoadAndDecrement(dest, addr) => write!(f, "LD {:?} ({:?}-)", dest, addr),
-            Op::Unknown(code) => write!(f, "Don't know how to display: 0x{:x}", code),
+            Op::Unknown(code) => write!(f, "Don't know how to display: 0x{:X}", code),
             _ => write!(f, "Missed case!"),
         }
     }
@@ -86,12 +128,20 @@ pub enum AluOp {
     WideDec(Reg16),
     WideInc(Reg16),
     Xor(Data), // Xor with accumulator.
+    DecimalAdjust,
+    Complment,
+    SetCarry,
+    ClearCarry,
     Unknown,
 }
 
 impl fmt::Display for AluOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            AluOp::DecimalAdjust => write!(f, "DAA"),
+            AluOp::Complment => write!(f, "CPL"),
+            AluOp::SetCarry => write!(f, "SCF"),
+            AluOp::ClearCarry => write!(f, "CCF"),
             AluOp::Add(data) => write!(f, "ADD A {:?}", data),
             AluOp::AddWithCarry(data) => write!(f, "ADC {:?}", data),
             AluOp::And(data) => write!(f, "AND {:?}", data),
@@ -149,8 +199,6 @@ pub enum Data {
 pub enum Address {
     Register16(Reg16),
     Immediate16(u16),
-    IoImmedite(u8),
-    IoRegister, // Always register C.
 }
 
 impl fmt::Display for Data {
@@ -171,12 +219,15 @@ pub fn decode(rom: &[u8], pc: usize) -> (Op, usize, usize) {
     if let Some((op, size, time)) = decode_load(&rom, pc) {
         return (op, size, time);
     }
+    if let Some((op, size, time)) = decode_jump(&rom, pc) {
+        return (op, size, time);
+    }
     match rom[pc] {
         0x00 => (Op::Nop, 1, 1),
-        0xC3 => {
-            let dest = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
-            (Op::Jump(Data::Immediate16(dest)), 3, 3)
-        }
+        0x01 => (Op::Stop, 2, 1),
+        0x76 => (Op::Halt, 1, 1),
+        0xF3 => (Op::DisableInterrupts, 1, 1),
+        0xFC => (Op::EnableInterrupts, 1, 1),
         0xCB => decode_extended(rom[pc + 1]),
         code => (Op::Unknown(code), 1, 0),
     }
@@ -186,6 +237,9 @@ pub fn decode(rom: &[u8], pc: usize) -> (Op, usize, usize) {
 fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
     let inst = match rom[pc] {
         0x03 => (AluOp::WideInc(BC), 1, 1),
+        0x13 => (AluOp::WideInc(DE), 1, 1),
+        0x23 => (AluOp::WideInc(HL), 1, 1),
+        0x33 => (AluOp::WideInc(SP), 1, 1),
 
         0x04 => (AluOp::Inc(B), 1, 1),
         0x14 => (AluOp::Inc(D), 1, 1),
@@ -202,7 +256,12 @@ fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x0F => (AluOp::RotateRightIntoCarry, 1, 1),
         0x1F => (AluOp::RotateRightThroughCarry, 1, 1),
 
-        // TODO(slongifeld) 0x27, 0x37, 0x2f, 0x3F
+        0x27 => (AluOp::DecimalAdjust, 1, 1),
+        0x2F => (AluOp::Complment, 1, 1),
+
+        0x37 => (AluOp::SetCarry, 1, 1),
+        0x3F => (AluOp::ClearCarry, 1, 1),
+
         0x09 => (AluOp::WideAdd(HL, BC), 1, 2),
         0x19 => (AluOp::WideAdd(HL, DE), 1, 2),
         0x29 => (AluOp::WideAdd(HL, HL), 1, 2),
@@ -356,6 +415,10 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
 
         0x0A => (Op::Load(A, Address::Register16(BC)), 1, 2),
         0x1A => (Op::Load(A, Address::Register16(DE)), 1, 2),
+        0xFA => {
+            let source = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+            (Op::Load(A, Address::Immediate16(source)), 3, 2)
+        }
         0x2A => (Op::LoadAndIncrement(A, Address::Register16(HL)), 1, 2),
         0x3A => (Op::LoadAndDecrement(A, Address::Register16(HL)), 1, 2),
 
@@ -430,6 +493,71 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x74 => (Op::Store(Address::Register16(HL), H), 1, 2),
         0x75 => (Op::Store(Address::Register16(HL), L), 1, 2),
         0x77 => (Op::Store(Address::Register16(HL), A), 1, 2),
+        0xEA => {
+            let dest = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+            (Op::Store(Address::Immediate16(dest), A), 3, 2)
+        }
+
+        0xE0 => (Op::SetIO(rom[pc + 1]), 2, 3),
+        0xEC => (Op::SetIOC, 1, 3),
+        0xF0 => (Op::ReadIO(rom[pc + 1]), 2, 3),
+        0xFC => (Op::ReadIOC, 1, 3),
+
+        0xC1 => (Op::Pop(BC), 1, 3),
+        0xD1 => (Op::Pop(DE), 1, 3),
+        0xE1 => (Op::Pop(HL), 1, 3),
+        0xF1 => (Op::Pop(AF), 1, 3),
+        0xC5 => (Op::Push(BC), 1, 4),
+        0xD5 => (Op::Push(DE), 1, 4),
+        0xE5 => (Op::Push(HL), 1, 4),
+        0xF5 => (Op::Push(AF), 1, 4),
+
+        code => (Op::Unknown(code), 0, 0),
+    };
+    match inst {
+        (Op::Unknown(_), _, _) => None,
+        (op, size, time) => Some((op, size, time)),
+    }
+}
+
+///! Decode ALU operations.
+fn decode_jump(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
+    let dest = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+    let inst = match rom[pc] {
+        // Conditional jumps take an extra cycle if they're taken.
+        // TODO(slongfield) Annotate this.
+        0x20 => (Op::ConditionalJumpRelative(NotZero, rom[pc + 1]), 2, 2),
+        0x30 => (Op::ConditionalJumpRelative(NotCarry, rom[pc + 1]), 2, 2),
+        0x28 => (Op::ConditionalJumpRelative(Zero, rom[pc + 1]), 2, 2),
+        0x38 => (Op::ConditionalJumpRelative(Carry, rom[pc + 1]), 2, 2),
+        0x18 => (Op::JumpRelative(rom[pc + 1]), 2, 3),
+        0xC2 => (Op::ConditionalJump(NotZero, dest), 3, 3),
+        0xD2 => (Op::ConditionalJump(NotCarry, dest), 3, 3),
+        0xCA => (Op::ConditionalJump(Zero, dest), 3, 3),
+        0xDA => (Op::ConditionalJump(Carry, dest), 3, 3),
+        0xC3 => (Op::Jump(Address::Immediate16(dest)), 3, 4),
+        0xE9 => (Op::Jump(Address::Register16(HL)), 1, 4),
+        0xC7 => (Op::Reset(0x0), 1, 4),
+        0xD7 => (Op::Reset(0x10), 1, 4),
+        0xE7 => (Op::Reset(0x20), 1, 4),
+        0xF7 => (Op::Reset(0x30), 1, 4),
+        0xCF => (Op::Reset(0x8), 1, 4),
+        0xDF => (Op::Reset(0x18), 1, 4),
+        0xEF => (Op::Reset(0x28), 1, 4),
+        0xFF => (Op::Reset(0x38), 1, 4),
+        // Conditional returns take 3 extra cycles if they're taken.
+        0xC1 => (Op::ConditionalReturn(NotZero), 1, 2),
+        0xD1 => (Op::ConditionalReturn(NotCarry), 1, 2),
+        0xC8 => (Op::ConditionalReturn(Zero), 1, 2),
+        0xD8 => (Op::ConditionalReturn(Carry), 1, 2),
+        0xC9 => (Op::Return, 1, 4),
+        0xD9 => (Op::ReturnAndEnableInterrupts, 1, 4),
+        // Conditional calls take an extra 3 cycles.
+        0xC4 => (Op::ConditionalCall(NotZero, dest), 3, 3),
+        0xD4 => (Op::ConditionalCall(NotCarry, dest), 3, 3),
+        0xCC => (Op::ConditionalCall(Zero, dest), 3, 3),
+        0xDC => (Op::ConditionalCall(Carry, dest), 3, 3),
+        0xCD => (Op::Call(dest), 3, 3),
 
         code => (Op::Unknown(code), 0, 0),
     };
