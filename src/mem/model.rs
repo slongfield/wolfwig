@@ -48,50 +48,50 @@ impl Memory {
         }
     }
 
-    pub fn read(&self, address: u16) -> u8 {
+    pub fn read(&self, address: usize) -> u8 {
         match address {
-            addr @ 0x0000..=0x7FFF => self.rom[addr as usize],
-            addr @ 0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],
-            addr @ 0xA000..=0xBFFF => self.xram[(addr - 0xA000) as usize],
-            addr @ 0xC000..=0xCFFF => self.wram0[(addr - 0xC000) as usize],
-            addr @ 0xD000..=0xDFFF => self.wram1_n[(addr - 0xD000) as usize],
+            addr @ 0x0000..=0x7FFF => self.rom[addr],
+            addr @ 0x8000..=0x9FFF => self.vram[addr - 0x8000],
+            addr @ 0xA000..=0xBFFF => self.xram[addr - 0xA000],
+            addr @ 0xC000..=0xCFFF => self.wram0[addr - 0xC000],
+            addr @ 0xD000..=0xDFFF => self.wram1_n[addr - 0xD000],
             addr @ 0xE000..=0xFDFF => {
                 // Echo RAM, maps back onto 0xC000-0XDDFF
                 self.read(addr - 0x2000)
             }
-            addr @ 0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
+            addr @ 0xFE00..=0xFE9F => self.oam[addr - 0xFE00],
             addr @ 0xFEA0..=0xFEFF => {
                 // Reads here return 0 on DMG, random data on GBC, Pan docs say they usualy
                 // don't happen, so log if they do, since that could be interesting.
                 info!("Read from unmapped memory region: {}", addr);
                 0
             }
-            addr @ 0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
-            addr @ 0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize],
+            addr @ 0xFF00..=0xFF7F => self.io_regs[addr - 0xFF00],
+            addr @ 0xFF80..=0xFFFE => self.high_ram[addr - 0xFF80],
             0xFFFF => self.interrupt_enable,
             bad_addr => panic!("Attempted to read from unmapped address: {}!", bad_addr),
         }
     }
 
-    pub fn write(&mut self, address: u16, val: u8) {
+    pub fn write(&mut self, address: usize, val: u8) {
         match address {
-            addr @ 0x0000..=0x7FFF => {}
-            addr @ 0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize] = val,
-            addr @ 0xA000..=0xBFFF => self.xram[(addr - 0xA000) as usize] = val,
-            addr @ 0xC000..=0xCFFF => self.wram0[(addr - 0xC000) as usize] = val,
-            addr @ 0xD000..=0xDFFF => self.wram1_n[(addr - 0xD000) as usize] = val,
+            0x0000..=0x7FFF => {}
+            addr @ 0x8000..=0x9FFF => self.vram[addr - 0x8000] = val,
+            addr @ 0xA000..=0xBFFF => self.xram[addr - 0xA000] = val,
+            addr @ 0xC000..=0xCFFF => self.wram0[addr - 0xC000] = val,
+            addr @ 0xD000..=0xDFFF => self.wram1_n[addr - 0xD000] = val,
             addr @ 0xE000..=0xFDFF => {
                 // Echo RAM, maps back onto 0xC000-0XDDFF
                 self.write(addr - 0x2000, val)
             }
-            addr @ 0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = val,
+            addr @ 0xFE00..=0xFE9F => self.oam[addr - 0xFE00] = val,
             addr @ 0xFEA0..=0xFEFF => {
                 // Writes here are ignored, Pan docs say they usualy don't happen, so log if they
                 // do, since that could be interesting.
                 info!("Write to unmapped memory region: {}", addr)
             }
-            addr @ 0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = val,
-            addr @ 0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize] = val,
+            addr @ 0xFF00..=0xFF7F => self.io_regs[addr - 0xFF00] = val,
+            addr @ 0xFF80..=0xFFFE => self.high_ram[addr - 0xFF80] = val,
             0xFFFF => self.interrupt_enable = val,
             bad_addr => panic!("Attempted to read from unmapped address: {}!", bad_addr),
         }

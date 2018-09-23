@@ -34,6 +34,6 @@ impl Wolfwig {
     }
 
     pub fn dump_instructions(&self, start_pc: usize, end_pc: usize) {
-        self.cpu.dump_instructions(&self.mem.rom, start_pc, end_pc);
+        self.cpu.dump_instructions(&self.mem, start_pc, end_pc);
     }
 }

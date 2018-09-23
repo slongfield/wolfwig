@@ -1,3 +1,4 @@
+use mem::model::Memory;
 use std::fmt;
 
 use cpu::registers::Flag::{self, Carry, NotCarry, NotZero, Zero};
@@ -211,7 +212,7 @@ impl fmt::Display for Data {
 
 ///! Decode takes the ROM and current PC, and returns the Op a that PC, as well as the number of
 ///! bytes in that op, and the number of cycles it runs for.
-pub fn decode(rom: &[u8], pc: usize) -> (Op, usize, usize) {
+pub fn decode(rom: &Memory, pc: usize) -> (Op, usize, usize) {
     if let Some((op, size, time)) = decode_alu(&rom, pc) {
         return (op, size, time);
     }
@@ -221,20 +222,21 @@ pub fn decode(rom: &[u8], pc: usize) -> (Op, usize, usize) {
     if let Some((op, size, time)) = decode_jump(&rom, pc) {
         return (op, size, time);
     }
-    match rom[pc] {
+    match rom.read(pc) {
         0x00 => (Op::Nop, 1, 1),
         0x01 => (Op::Stop, 2, 1),
         0x76 => (Op::Halt, 1, 1),
         0xF3 => (Op::DisableInterrupts, 1, 1),
         0xFC => (Op::EnableInterrupts, 1, 1),
-        0xCB => decode_extended(rom[pc + 1]),
+        0xCB => decode_extended(rom.read(pc + 1)),
         code => (Op::Unknown(code), 1, 0),
     }
 }
 
 ///! Decode ALU operations.
-fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
-    let inst = match rom[pc] {
+fn decode_alu(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
+    let imm8 = rom.read(pc + 1);
+    let inst = match rom.read(pc) {
         0x03 => (AluOp::WideInc(BC), 1, 1),
         0x13 => (AluOp::WideInc(DE), 1, 1),
         0x23 => (AluOp::WideInc(HL), 1, 1),
@@ -351,14 +353,14 @@ fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0xBE => (AluOp::Compare(Data::Register16(HL)), 1, 2),
         0xBF => (AluOp::Compare(Data::Register8(A)), 1, 1),
 
-        0xC6 => (AluOp::Add(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xD6 => (AluOp::Sub(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xE6 => (AluOp::And(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xF6 => (AluOp::Or(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xCE => (AluOp::AddWithCarry(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xDE => (AluOp::SubWithCarry(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xEE => (AluOp::Xor(Data::Immediate8(rom[(pc + 1)])), 2, 1),
-        0xFE => (AluOp::Compare(Data::Immediate8(rom[(pc + 1)])), 2, 1),
+        0xC6 => (AluOp::Add(Data::Immediate8(imm8)), 2, 1),
+        0xD6 => (AluOp::Sub(Data::Immediate8(imm8)), 2, 1),
+        0xE6 => (AluOp::And(Data::Immediate8(imm8)), 2, 1),
+        0xF6 => (AluOp::Or(Data::Immediate8(imm8)), 2, 1),
+        0xCE => (AluOp::AddWithCarry(Data::Immediate8(imm8)), 2, 1),
+        0xDE => (AluOp::SubWithCarry(Data::Immediate8(imm8)), 2, 1),
+        0xEE => (AluOp::Xor(Data::Immediate8(imm8)), 2, 1),
+        0xFE => (AluOp::Compare(Data::Immediate8(imm8)), 2, 1),
 
         _ => (AluOp::Unknown, 0, 0),
     };
@@ -369,55 +371,35 @@ fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode move, load, and store operations.
-fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
-    let inst = match rom[pc] {
-        0x01 => (
-            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
-            3,
-            3,
-        ),
-        0x11 => (
-            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
-            3,
-            3,
-        ),
-        0x21 => (
-            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
-            3,
-            3,
-        ),
-        0x31 => (
-            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
-            3,
-            3,
-        ),
+fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
+    let imm16 = util::bytes_to_u16(&[rom.read(pc + 1), rom.read(pc + 2)]);
+    let imm8 = rom.read(pc + 1);
+    let inst = match rom.read(pc) {
+        0x01 => (Op::SetWide(BC, imm16), 3, 3),
+        0x11 => (Op::SetWide(BC, imm16), 3, 3),
+        0x21 => (Op::SetWide(BC, imm16), 3, 3),
+        0x31 => (Op::SetWide(BC, imm16), 3, 3),
 
         0x02 => (Op::Store(Address::Register16(BC), A), 1, 2),
         0x12 => (Op::Store(Address::Register16(DE), A), 1, 2),
         0x22 => (Op::StoreAndIncrement(Address::Register16(HL), A), 1, 2),
         0x32 => (Op::StoreAndDecrement(Address::Register16(HL), A), 1, 2),
 
-        0x06 => (Op::Set(B, rom[pc + 1]), 2, 2),
-        0x16 => (Op::Set(D, rom[pc + 1]), 2, 2),
-        0x26 => (Op::Set(H, rom[pc + 1]), 2, 2),
-        0x36 => (Op::SetWide(HL, u16::from(rom[pc + 1])), 2, 2),
+        0x06 => (Op::Set(B, imm8), 2, 2),
+        0x16 => (Op::Set(D, imm8), 2, 2),
+        0x26 => (Op::Set(H, imm8), 2, 2),
+        0x36 => (Op::SetWide(HL, u16::from(imm8)), 2, 2),
 
-        0x08 => {
-            let addr = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
-            (Op::WideStore(Address::Immediate16(addr), SP), 3, 5)
-        }
+        0x08 => (Op::WideStore(Address::Immediate16(imm16), SP), 3, 5),
 
-        0x0E => (Op::Set(C, rom[pc + 1]), 2, 2),
-        0x1E => (Op::Set(E, rom[pc + 1]), 2, 2),
-        0x2E => (Op::Set(L, rom[pc + 1]), 2, 2),
-        0x3E => (Op::Set(A, rom[pc + 1]), 2, 2),
+        0x0E => (Op::Set(C, imm8), 2, 2),
+        0x1E => (Op::Set(E, imm8), 2, 2),
+        0x2E => (Op::Set(L, imm8), 2, 2),
+        0x3E => (Op::Set(A, imm8), 2, 2),
 
         0x0A => (Op::Load(A, Address::Register16(BC)), 1, 2),
         0x1A => (Op::Load(A, Address::Register16(DE)), 1, 2),
-        0xFA => {
-            let source = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
-            (Op::Load(A, Address::Immediate16(source)), 3, 2)
-        }
+        0xFA => (Op::Load(A, Address::Immediate16(imm16)), 3, 2),
         0x2A => (Op::LoadAndIncrement(A, Address::Register16(HL)), 1, 2),
         0x3A => (Op::LoadAndDecrement(A, Address::Register16(HL)), 1, 2),
 
@@ -492,14 +474,11 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x74 => (Op::Store(Address::Register16(HL), H), 1, 2),
         0x75 => (Op::Store(Address::Register16(HL), L), 1, 2),
         0x77 => (Op::Store(Address::Register16(HL), A), 1, 2),
-        0xEA => {
-            let dest = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
-            (Op::Store(Address::Immediate16(dest), A), 3, 2)
-        }
+        0xEA => (Op::Store(Address::Immediate16(imm16), A), 3, 2),
 
-        0xE0 => (Op::SetIO(rom[pc + 1]), 2, 3),
+        0xE0 => (Op::SetIO(imm8), 2, 3),
         0xEC => (Op::SetIOC, 1, 3),
-        0xF0 => (Op::ReadIO(rom[pc + 1]), 2, 3),
+        0xF0 => (Op::ReadIO(imm8), 2, 3),
         0xFC => (Op::ReadIOC, 1, 3),
 
         0xC1 => (Op::Pop(BC), 1, 3),
@@ -520,21 +499,22 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode ALU operations.
-fn decode_jump(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
-    let dest = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
-    let inst = match rom[pc] {
+fn decode_jump(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
+    let dest16 = util::bytes_to_u16(&[rom.read(pc + 1), rom.read(pc + 2)]);
+    let dest8 = rom.read(pc + 1);
+    let inst = match rom.read(pc) {
         // Conditional jumps take an extra cycle if they're taken.
         // TODO(slongfield) Annotate this.
-        0x20 => (Op::ConditionalJumpRelative(NotZero, rom[pc + 1]), 2, 2),
-        0x30 => (Op::ConditionalJumpRelative(NotCarry, rom[pc + 1]), 2, 2),
-        0x28 => (Op::ConditionalJumpRelative(Zero, rom[pc + 1]), 2, 2),
-        0x38 => (Op::ConditionalJumpRelative(Carry, rom[pc + 1]), 2, 2),
-        0x18 => (Op::JumpRelative(rom[pc + 1]), 2, 3),
-        0xC2 => (Op::ConditionalJump(NotZero, dest), 3, 3),
-        0xD2 => (Op::ConditionalJump(NotCarry, dest), 3, 3),
-        0xCA => (Op::ConditionalJump(Zero, dest), 3, 3),
-        0xDA => (Op::ConditionalJump(Carry, dest), 3, 3),
-        0xC3 => (Op::Jump(Address::Immediate16(dest)), 3, 4),
+        0x20 => (Op::ConditionalJumpRelative(NotZero, dest8), 2, 2),
+        0x30 => (Op::ConditionalJumpRelative(NotCarry, dest8), 2, 2),
+        0x28 => (Op::ConditionalJumpRelative(Zero, dest8), 2, 2),
+        0x38 => (Op::ConditionalJumpRelative(Carry, dest8), 2, 2),
+        0x18 => (Op::JumpRelative(rom.read(pc + 1)), 2, 3),
+        0xC2 => (Op::ConditionalJump(NotZero, dest16), 3, 3),
+        0xD2 => (Op::ConditionalJump(NotCarry, dest16), 3, 3),
+        0xCA => (Op::ConditionalJump(Zero, dest16), 3, 3),
+        0xDA => (Op::ConditionalJump(Carry, dest16), 3, 3),
+        0xC3 => (Op::Jump(Address::Immediate16(dest16)), 3, 4),
         0xE9 => (Op::Jump(Address::Register16(HL)), 1, 4),
         0xC7 => (Op::Reset(0x0), 1, 4),
         0xD7 => (Op::Reset(0x10), 1, 4),
@@ -552,11 +532,11 @@ fn decode_jump(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0xC9 => (Op::Return, 1, 4),
         0xD9 => (Op::ReturnAndEnableInterrupts, 1, 4),
         // Conditional calls take an extra 3 cycles.
-        0xC4 => (Op::ConditionalCall(NotZero, dest), 3, 3),
-        0xD4 => (Op::ConditionalCall(NotCarry, dest), 3, 3),
-        0xCC => (Op::ConditionalCall(Zero, dest), 3, 3),
-        0xDC => (Op::ConditionalCall(Carry, dest), 3, 3),
-        0xCD => (Op::Call(dest), 3, 3),
+        0xC4 => (Op::ConditionalCall(NotZero, dest16), 3, 3),
+        0xD4 => (Op::ConditionalCall(NotCarry, dest16), 3, 3),
+        0xCC => (Op::ConditionalCall(Zero, dest16), 3, 3),
+        0xDC => (Op::ConditionalCall(Carry, dest16), 3, 3),
+        0xCD => (Op::Call(dest16), 3, 3),
 
         code => (Op::Unknown(code), 0, 0),
     };
