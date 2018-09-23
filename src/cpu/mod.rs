@@ -20,11 +20,15 @@ fn bytes_to_u16(bytes: &[u8]) -> u16 {
     outp
 }
 
-pub struct Cpu {}
+pub struct Cpu {
+    regs: registers::Registers,
+}
 
 impl Cpu {
     pub fn new() -> Cpu {
-        Cpu {}
+        Cpu {
+            regs: registers::Registers::new(),
+        }
     }
 
     pub fn dump_instructions(&self, rom: &[u8], start_pc: usize, end_pc: usize) {
