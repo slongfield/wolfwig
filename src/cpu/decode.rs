@@ -1,9 +1,9 @@
 use std::fmt;
 
-use cpu;
 use cpu::registers::Flag::{self, Carry, NotCarry, NotZero, Zero};
 use cpu::registers::Reg16::{self, AF, BC, DE, HL, SP};
 use cpu::registers::Reg8::{self, A, B, C, D, E, H, L};
+use util;
 
 ///! Op
 /// TODO(slongfield): Encode the microops that make up these instructions, and the flags that
@@ -372,22 +372,22 @@ fn decode_alu(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
 fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
     let inst = match rom[pc] {
         0x01 => (
-            Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
+            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
         ),
         0x11 => (
-            Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
+            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
         ),
         0x21 => (
-            Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
+            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
         ),
         0x31 => (
-            Op::SetWide(BC, cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
+            Op::SetWide(BC, util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)])),
             3,
             3,
         ),
@@ -403,7 +403,7 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x36 => (Op::SetWide(HL, u16::from(rom[pc + 1])), 2, 2),
 
         0x08 => {
-            let addr = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+            let addr = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
             (Op::WideStore(Address::Immediate16(addr), SP), 3, 5)
         }
 
@@ -415,7 +415,7 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x0A => (Op::Load(A, Address::Register16(BC)), 1, 2),
         0x1A => (Op::Load(A, Address::Register16(DE)), 1, 2),
         0xFA => {
-            let source = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+            let source = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
             (Op::Load(A, Address::Immediate16(source)), 3, 2)
         }
         0x2A => (Op::LoadAndIncrement(A, Address::Register16(HL)), 1, 2),
@@ -493,7 +493,7 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
         0x75 => (Op::Store(Address::Register16(HL), L), 1, 2),
         0x77 => (Op::Store(Address::Register16(HL), A), 1, 2),
         0xEA => {
-            let dest = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+            let dest = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
             (Op::Store(Address::Immediate16(dest), A), 3, 2)
         }
 
@@ -521,7 +521,7 @@ fn decode_load(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
 
 ///! Decode ALU operations.
 fn decode_jump(rom: &[u8], pc: usize) -> Option<(Op, usize, usize)> {
-    let dest = cpu::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
+    let dest = util::bytes_to_u16(&rom[(pc + 1)..(pc + 3)]);
     let inst = match rom[pc] {
         // Conditional jumps take an extra cycle if they're taken.
         // TODO(slongfield) Annotate this.

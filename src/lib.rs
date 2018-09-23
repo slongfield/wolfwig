@@ -1,15 +1,19 @@
+#[macro_use]
+extern crate log;
+
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
 mod cpu;
+mod mem;
+mod util;
 
 ///! Wolfwig is the main object in the emulator that owns everything.
 ///! TODO(slongfield): Write some actual documentation.
 pub struct Wolfwig {
-    rom: Vec<u8>,
-    header: cpu::header::Header,
     cpu: cpu::lr25902::LR25902,
+    mem: mem::model::Memory,
 }
 
 impl Wolfwig {
@@ -17,22 +21,19 @@ impl Wolfwig {
         let mut file = File::open(filename)?;
         let mut buffer = vec![];
         let read = file.read_to_end(&mut buffer)?;
-        println!("Read {:x} bytes from {:?}", read, filename);
-
-        let header = cpu::header::Header::new(&buffer);
+        info!("Read {} bytes from {:?}", read, filename);
 
         Ok(Wolfwig {
-            rom: buffer,
-            header,
+            mem: mem::model::Memory::new(buffer),
             cpu: cpu::lr25902::LR25902::new(),
         })
     }
 
     pub fn print_header(&self) {
-        println!("{}", self.header);
+        println!("{}", self.mem.header);
     }
 
     pub fn dump_instructions(&self, start_pc: usize, end_pc: usize) {
-        self.cpu.dump_instructions(&self.rom, start_pc, end_pc);
+        self.cpu.dump_instructions(&self.mem.rom, start_pc, end_pc);
     }
 }

@@ -1,6 +1,6 @@
-use cpu;
 use std::fmt;
 use std::str;
+use util;
 
 ///! Constants associated with the ROM header. Each of these is a range of bytes in the header.
 const NINTENDO: (usize, usize) = (0x0104, 0x0133);
@@ -42,7 +42,7 @@ impl Header {
             title: str::from_utf8(&bytes[TITLE.0..(TITLE.1)])
                 .unwrap()
                 .to_string(),
-            manufacturer: cpu::bytes_to_u32(&bytes[MANUFACTURER.0..(MANUFACTURER.1 + 1)]),
+            manufacturer: util::bytes_to_u32(&bytes[MANUFACTURER.0..(MANUFACTURER.1 + 1)]),
             gcb: bytes[GCB.0] != 0,
             licensee: decode_license(&bytes),
             sgb: bytes[SGB.0] != 0,
@@ -61,7 +61,7 @@ impl Header {
 ///! Decodes the licensee codes.
 /// TODO(slongfield): Transcribe the full list.
 fn decode_license(bytes: &[u8]) -> String {
-    match cpu::bytes_to_u16(&bytes[LICENSEE.0..(LICENSEE.1 + 1)]) {
+    match util::bytes_to_u16(&bytes[LICENSEE.0..(LICENSEE.1 + 1)]) {
         0x00 => "None".to_string(),
         0x01 => "Nintendo".to_string(),
         0x33 => decode_extended_license(&bytes),
@@ -73,7 +73,7 @@ fn decode_license(bytes: &[u8]) -> String {
 /// TODO(slongfield): The decode here seems to be missing some documentation, figure out the
 /// algorithm and document. This works for now, though.
 fn decode_extended_license(bytes: &[u8]) -> String {
-    match cpu::bytes_to_u16(&bytes[NEW_LICENSEE.0..(NEW_LICENSEE.1 + 1)]) {
+    match util::bytes_to_u16(&bytes[NEW_LICENSEE.0..(NEW_LICENSEE.1 + 1)]) {
         0x3031 => "Nintendo (new)".to_string(),
         code => format!("Other Extended License: 0x{:x}", code),
     }
