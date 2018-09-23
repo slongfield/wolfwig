@@ -9,7 +9,7 @@ mod cpu;
 pub struct Wolfwig {
     rom: Vec<u8>,
     header: cpu::header::Header,
-    cpu: cpu::Cpu,
+    cpu: cpu::lr25902::LR25902,
 }
 
 impl Wolfwig {
@@ -24,7 +24,7 @@ impl Wolfwig {
         Ok(Wolfwig {
             rom: buffer,
             header,
-            cpu: cpu::Cpu::new(),
+            cpu: cpu::lr25902::LR25902::new(),
         })
     }
 
