@@ -25,11 +25,25 @@ pub struct Memory {
     // IO registers, 0xFF00-0xFF7F
     io_regs: [u8; 0x80],
     // High RAM. 0xFF80-0xFFFE
-    // TODO(slongfield): Unclear what this is used for?
     high_ram: [u8; 0x17f],
     // Interrupts enable register, 0xFFF.
     interrupt_enable: u8,
 }
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Interrupt {
+    Vblank,
+    LCDStat,
+    Timer,
+    Serial,
+    Joypad,
+}
+
+const VBLANK_BIT: u8 = 1;
+const LCD_STAT_BIT: u8 = 1 << 1;
+const TIMER_BIT: u8 = 1 << 2;
+const SERIAL_BIT: u8 = 1 << 3;
+const JOYPAD_BIT: u8 = 1 << 4;
 
 impl Memory {
     pub fn new(rom: Vec<u8>) -> Memory {
@@ -96,6 +110,57 @@ impl Memory {
             bad_addr => panic!("Attempted to read from unmapped address: {}!", bad_addr),
         }
     }
+
+    pub fn set_interrupt_flag(&mut self, i: Interrupt, val: bool) {
+        match (i, val) {
+            (Interrupt::Vblank, true) => self.io_regs[0xF] |= VBLANK_BIT,
+            (Interrupt::Vblank, false) => self.io_regs[0xF] &= !VBLANK_BIT,
+            (Interrupt::LCDStat, true) => self.io_regs[0xF] |= LCD_STAT_BIT,
+            (Interrupt::LCDStat, false) => self.io_regs[0xF] &= !LCD_STAT_BIT,
+            (Interrupt::Timer, true) => self.io_regs[0xF] |= TIMER_BIT,
+            (Interrupt::Timer, false) => self.io_regs[0xF] &= !TIMER_BIT,
+            (Interrupt::Serial, true) => self.io_regs[0xF] |= SERIAL_BIT,
+            (Interrupt::Serial, false) => self.io_regs[0xF] &= !SERIAL_BIT,
+            (Interrupt::Joypad, true) => self.io_regs[0xF] |= JOYPAD_BIT,
+            (Interrupt::Joypad, false) => self.io_regs[0xF] &= !JOYPAD_BIT,
+        }
+    }
+
+    pub fn set_interrupt_enable(&mut self, i: Interrupt, val: bool) {
+        match (i, val) {
+            (Interrupt::Vblank, true) => self.interrupt_enable |= VBLANK_BIT,
+            (Interrupt::Vblank, false) => self.interrupt_enable &= !VBLANK_BIT,
+            (Interrupt::LCDStat, true) => self.interrupt_enable |= LCD_STAT_BIT,
+            (Interrupt::LCDStat, false) => self.interrupt_enable &= !LCD_STAT_BIT,
+            (Interrupt::Timer, true) => self.interrupt_enable |= TIMER_BIT,
+            (Interrupt::Timer, false) => self.interrupt_enable &= !TIMER_BIT,
+            (Interrupt::Serial, true) => self.interrupt_enable |= SERIAL_BIT,
+            (Interrupt::Serial, false) => self.interrupt_enable &= !SERIAL_BIT,
+            (Interrupt::Joypad, true) => self.interrupt_enable |= JOYPAD_BIT,
+            (Interrupt::Joypad, false) => self.interrupt_enable &= !JOYPAD_BIT,
+        }
+    }
+
+    /// Returns the highest prioirty that's enabled and whose flag is set, or None if no
+    /// interrupts are ready.
+    pub fn get_interrupt(&mut self) -> Option<Interrupt> {
+        if (self.interrupt_enable & VBLANK_BIT != 0) && (self.io_regs[0xF] & VBLANK_BIT != 0) {
+            return Some(Interrupt::Vblank);
+        }
+        if (self.interrupt_enable & LCD_STAT_BIT != 0) && (self.io_regs[0xF] & LCD_STAT_BIT != 0) {
+            return Some(Interrupt::LCDStat);
+        }
+        if (self.interrupt_enable & TIMER_BIT != 0) && (self.io_regs[0xF] & TIMER_BIT != 0) {
+            return Some(Interrupt::Timer);
+        }
+        if (self.interrupt_enable & SERIAL_BIT != 0) && (self.io_regs[0xF] & SERIAL_BIT != 0) {
+            return Some(Interrupt::Serial);
+        }
+        if (self.interrupt_enable & JOYPAD_BIT != 0) && (self.io_regs[0xF] & JOYPAD_BIT != 0) {
+            return Some(Interrupt::Joypad);
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -114,6 +179,29 @@ mod tests {
         let mut mem = Memory::new(vec![0; 0x1000]);
         mem.write(0xE042, 17);
         assert_eq!(mem.read(0xC042), 17);
+    }
+
+    #[test]
+    fn interrupt_enable() {
+        let mut mem = Memory::new(vec![0; 0x1000]);
+        mem.set_interrupt_enable(Interrupt::Timer, true);
+        mem.set_interrupt_enable(Interrupt::LCDStat, true);
+        mem.set_interrupt_flag(Interrupt::Vblank, true);
+        mem.set_interrupt_flag(Interrupt::Timer, true);
+        mem.set_interrupt_flag(Interrupt::LCDStat, true);
+        assert_eq!(mem.get_interrupt().unwrap(), Interrupt::LCDStat);
+
+        mem.set_interrupt_enable(Interrupt::Vblank, true);
+        assert_eq!(mem.get_interrupt().unwrap(), Interrupt::Vblank);
+
+        mem.set_interrupt_flag(Interrupt::LCDStat, false);
+        assert_eq!(mem.get_interrupt().unwrap(), Interrupt::Vblank);
+
+        mem.set_interrupt_flag(Interrupt::Vblank, false);
+        assert_eq!(mem.get_interrupt().unwrap(), Interrupt::Timer);
+
+        mem.set_interrupt_flag(Interrupt::Timer, false);
+        assert!(mem.get_interrupt().is_none());
     }
 
 }

@@ -16,5 +16,5 @@ fn main() {
     };
     let wolfwig = wolfwig::Wolfwig::from_file(&Path::new(&filename)).unwrap();
     wolfwig.print_header();
-    wolfwig.dump_instructions(0x150, 0x170);
+    wolfwig.dump_instructions(0x150, 0x1A0);
 }

@@ -12,6 +12,12 @@ pub enum Reg8 {
     L,
 }
 
+impl fmt::Display for Reg8 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 // 16-bit registers.
 #[derive(Debug, Copy, Clone)]
 pub enum Reg16 {
@@ -21,6 +27,12 @@ pub enum Reg16 {
     HL,
     SP,
     PC,
+}
+
+impl fmt::Display for Reg16 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 // Flag bits
@@ -41,6 +53,12 @@ pub enum Flag {
     // True if the carry-out was true for the lower 8 bits of the previous op.
     Carry,
     NotCarry,
+}
+
+impl fmt::Display for Flag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 ///! Structure that holds the current register values from the CPU.

@@ -7,6 +7,7 @@ use std::path::Path;
 
 mod cpu;
 mod mem;
+mod serial;
 mod util;
 
 ///! Wolfwig is the main object in the emulator that owns everything.
