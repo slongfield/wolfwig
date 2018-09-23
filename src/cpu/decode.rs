@@ -14,13 +14,13 @@ pub enum Op {
     Call(u16),
     ConditionalCall(Flag, u16),
     ConditionalJump(Flag, u16),
-    ConditionalJumpRelative(Flag, u8),
+    ConditionalJumpRelative(Flag, u16),
     ConditionalReturn(Flag),
     DisableInterrupts,
     EnableInterrupts,
     Halt,
     Jump(Address),
-    JumpRelative(u8),
+    JumpRelative(u16),
     Load(Reg8, Address),
     LoadAndDecrement(Reg8, Address),
     LoadAndIncrement(Reg8, Address),
@@ -59,11 +59,11 @@ impl fmt::Display for Op {
             Op::DisableInterrupts => write!(f, "DI"),
             Op::EnableInterrupts => write!(f, "EI"),
             Op::Halt => write!(f, "HALT"),
-            Op::Jump(address) => write!(f, "JP ({:?})", address),
+            Op::Jump(address) => write!(f, "JP ({})", address),
             Op::JumpRelative(address) => write!(f, "JR ({:?})", address),
-            Op::Load(dest, addr) => write!(f, "LD {:?} ({:?})", dest, addr),
-            Op::LoadAndDecrement(dest, addr) => write!(f, "LD {:?} ({:?}-)", dest, addr),
-            Op::LoadAndIncrement(dest, addr) => write!(f, "LD {:?} ({:?}+)", dest, addr),
+            Op::Load(dest, addr) => write!(f, "LD {:?} ({})", dest, addr),
+            Op::LoadAndDecrement(dest, addr) => write!(f, "LD {:?} ({}-)", dest, addr),
+            Op::LoadAndIncrement(dest, addr) => write!(f, "LD {:?} ({}+)", dest, addr),
             Op::Move(src, dest) => write!(f, "LD {:?} {:?}", src, dest),
             Op::Nop => write!(f, "NOP"),
             Op::Pop(reg) => write!(f, "POP {:?}", reg),
@@ -138,9 +138,9 @@ pub enum AluOp {
 impl fmt::Display for AluOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AluOp::Add(data) => write!(f, "ADD A {:?}", data),
-            AluOp::AddWithCarry(data) => write!(f, "ADC {:?}", data),
-            AluOp::And(data) => write!(f, "AND {:?}", data),
+            AluOp::Add(data) => write!(f, "ADD A {}", data),
+            AluOp::AddWithCarry(data) => write!(f, "ADC {}", data),
+            AluOp::And(data) => write!(f, "AND {}", data),
             AluOp::ClearCarry => write!(f, "CCF"),
             AluOp::Compare(data) => write!(f, "CMP {:?}", data),
             AluOp::Complment => write!(f, "CPL"),
@@ -195,17 +195,28 @@ pub enum Data {
     Immediate16(u16),
 }
 
+impl fmt::Display for Data {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Data::Register8(reg) => write!(f, "{:?}", reg),
+            Data::Register16(reg) => write!(f, "{:?}", reg),
+            Data::Immediate8(data) => write!(f, "0x{:X}", data),
+            Data::Immediate16(data) => write!(f, "0x{:X}", data),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Address {
     Register16(Reg16),
     Immediate16(u16),
 }
 
-impl fmt::Display for Data {
+impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Data::Immediate16(val) => write!(f, "0x{:x}", val),
-            _ => write!(f, "Unknown data type"),
+            Address::Immediate16(val) => write!(f, "0x{:X}", val),
+            Address::Register16(reg) => write!(f, "{:?}", reg),
         }
     }
 }
@@ -501,15 +512,15 @@ fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 ///! Decode ALU operations.
 fn decode_jump(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
     let dest16 = util::bytes_to_u16(&[rom.read(pc + 1), rom.read(pc + 2)]);
-    let dest8 = rom.read(pc + 1);
+    let relative_dest = (((pc + 2) as isize) + ((rom.read(pc + 1) as i8) as isize)) as u16;
     let inst = match rom.read(pc) {
         // Conditional jumps take an extra cycle if they're taken.
         // TODO(slongfield) Annotate this.
-        0x20 => (Op::ConditionalJumpRelative(NotZero, dest8), 2, 2),
-        0x30 => (Op::ConditionalJumpRelative(NotCarry, dest8), 2, 2),
-        0x28 => (Op::ConditionalJumpRelative(Zero, dest8), 2, 2),
-        0x38 => (Op::ConditionalJumpRelative(Carry, dest8), 2, 2),
-        0x18 => (Op::JumpRelative(rom.read(pc + 1)), 2, 3),
+        0x20 => (Op::ConditionalJumpRelative(NotZero, relative_dest), 2, 2),
+        0x30 => (Op::ConditionalJumpRelative(NotCarry, relative_dest), 2, 2),
+        0x28 => (Op::ConditionalJumpRelative(Zero, relative_dest), 2, 2),
+        0x38 => (Op::ConditionalJumpRelative(Carry, relative_dest), 2, 2),
+        0x18 => (Op::JumpRelative(relative_dest), 2, 3),
         0xC2 => (Op::ConditionalJump(NotZero, dest16), 3, 3),
         0xD2 => (Op::ConditionalJump(NotCarry, dest16), 3, 3),
         0xCA => (Op::ConditionalJump(Zero, dest16), 3, 3),
