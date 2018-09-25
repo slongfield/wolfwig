@@ -1,5 +1,5 @@
 use cpu::decode;
-use cpu::registers::Registers;
+use cpu::registers::{Reg16, Registers};
 use mem::model::Memory;
 
 ///! Emulation of the Sharp 8-bit LR25902 processor.
@@ -24,5 +24,11 @@ impl LR25902 {
                 break;
             }
         }
+    }
+
+    pub fn step(&mut self, mem: &mut Memory) -> u16 {
+        let pc = self.regs.read16(Reg16::PC);
+        self.regs.set16(Reg16::PC, pc + 1);
+        pc
     }
 }

@@ -10,28 +10,27 @@ pub struct Serial {
     channel: Option<mpsc::Sender<u8>>,
 }
 
-const SERIAL_DATA: usize = 0xFF01;
-const SERIAL_CONTROL: usize = 0xFF02;
-
-const START: u8 = 1 << 7;
-
 impl Serial {
+    const DATA: usize = 0xFF01;
+    const CONTROL: usize = 0xFF02;
+    const START: u8 = 1 << 7;
+
     pub fn new(channel: Option<mpsc::Sender<u8>>) -> Serial {
         Serial { channel }
     }
 
     pub fn step(&mut self, mem: &mut Memory) {
-        let control = mem.read(SERIAL_CONTROL);
-        if (control & START) != 0 {
+        let control = mem.read(Serial::CONTROL);
+        if (control & Serial::START) != 0 {
             if let Some(ref mut sender) = self.channel {
-                let data = mem.read(SERIAL_DATA);
+                let data = mem.read(Serial::DATA);
                 // TODO(slongfield): Handle error.
                 sender.send(data).unwrap();
             }
-            mem.write(SERIAL_CONTROL, control & !START);
+            mem.write(Serial::CONTROL, control & !Serial::START);
             // TODO(slongfield): Two-way communication. Normally data is shifted in here from the
             // external source as its shifted out over the course of 8 cycles.
-            mem.write(SERIAL_DATA, 0);
+            mem.write(Serial::DATA, 0);
         }
     }
 }
@@ -43,16 +42,16 @@ mod tests {
     #[test]
     fn basic_serial_write() {
         let (tx, rx) = mpsc::channel();
-        let mut mem = Memory::new(vec![0; 0x1000]);
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
         let mut serial = Serial::new(Some(tx));
 
-        mem.write(SERIAL_DATA, 0x51);
-        mem.write(SERIAL_CONTROL, START);
+        mem.write(Serial::DATA, 0x51);
+        mem.write(Serial::CONTROL, Serial::START);
 
         serial.step(&mut mem);
 
-        assert_eq!(mem.read(SERIAL_DATA), 0);
-        assert_eq!(mem.read(SERIAL_CONTROL), 0);
+        assert_eq!(mem.read(Serial::DATA), 0);
+        assert_eq!(mem.read(Serial::CONTROL), 0);
         assert_eq!(rx.recv().unwrap(), 0x51);
     }
 }

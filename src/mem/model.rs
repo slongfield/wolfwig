@@ -2,10 +2,12 @@ use mem::header;
 
 pub struct Memory {
     pub header: header::Header,
-    // TODO(slongfield): Support special boot ROM.
     // TODO(slongfield): Handle different memory controllers, and ROM banking.
     // 0x0000-3FFF for bank 0, 0x4000-7FFF for switchable bank.
-    pub rom: Vec<u8>,
+    // Reads from 0x0000 -> 0x0100 will read from the bootrom until 1 has been written to 0xFF50
+    bootrom: Vec<u8>,
+    rom: Vec<u8>,
+    bootrom_disabled: bool,
     // TODO(slongfield): Switchable banks.
     // Ox8000-0x9FFF
     vram: [u8; 0x2000],
@@ -46,11 +48,13 @@ const SERIAL_BIT: u8 = 1 << 3;
 const JOYPAD_BIT: u8 = 1 << 4;
 
 impl Memory {
-    pub fn new(rom: Vec<u8>) -> Memory {
+    pub fn new(bootrom: Vec<u8>, rom: Vec<u8>) -> Memory {
         let header = header::Header::new(&rom);
         Memory {
             header,
+            bootrom,
             rom,
+            bootrom_disabled: false,
             vram: [0; 0x2000],
             xram: [0; 0x2000],
             wram0: [0; 0x1000],
@@ -64,6 +68,7 @@ impl Memory {
 
     pub fn read(&self, address: usize) -> u8 {
         match address {
+            addr @ 0x0000..=0x00FF if !self.bootrom_disabled => self.bootrom[addr],
             addr @ 0x0000..=0x7FFF => self.rom[addr],
             addr @ 0x8000..=0x9FFF => self.vram[addr - 0x8000],
             addr @ 0xA000..=0xBFFF => self.xram[addr - 0xA000],
@@ -169,21 +174,21 @@ mod tests {
 
     #[test]
     fn read_after_write_ram() {
-        let mut mem = Memory::new(vec![0; 0x1000]);
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
         mem.write(0xC042, 41);
         assert_eq!(mem.read(0xC042), 41);
     }
 
     #[test]
     fn read_after_write_shadow_ram() {
-        let mut mem = Memory::new(vec![0; 0x1000]);
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
         mem.write(0xE042, 17);
         assert_eq!(mem.read(0xC042), 17);
     }
 
     #[test]
     fn interrupt_enable() {
-        let mut mem = Memory::new(vec![0; 0x1000]);
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
         mem.set_interrupt_enable(Interrupt::Timer, true);
         mem.set_interrupt_enable(Interrupt::LCDStat, true);
         mem.set_interrupt_flag(Interrupt::Vblank, true);

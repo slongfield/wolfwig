@@ -6,6 +6,7 @@ authors = ["Stephen Longfield <stephen.longfield@gmail.com>"]
 [dependencies]
 clippy =  {version = "*", optional = true}
 log = "0.4"
+structopt = "0.2"
 
 [features]
 default = []

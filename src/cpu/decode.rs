@@ -381,13 +381,13 @@ fn decode_alu(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 
 ///! Decode move, load, and store operations.
 fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
-    let imm16 = util::bytes_to_u16(&[rom.read(pc + 1), rom.read(pc + 2)]);
+    let imm16 = util::bytes_to_u16(&[rom.read(pc + 2), rom.read(pc + 1)]);
     let imm8 = rom.read(pc + 1);
     let inst = match rom.read(pc) {
         0x01 => (Op::SetWide(BC, imm16), 3, 3),
-        0x11 => (Op::SetWide(BC, imm16), 3, 3),
-        0x21 => (Op::SetWide(BC, imm16), 3, 3),
-        0x31 => (Op::SetWide(BC, imm16), 3, 3),
+        0x11 => (Op::SetWide(DE, imm16), 3, 3),
+        0x21 => (Op::SetWide(HL, imm16), 3, 3),
+        0x31 => (Op::SetWide(SP, imm16), 3, 3),
 
         0x02 => (Op::Store(Address::Register16(BC), A), 1, 2),
         0x12 => (Op::Store(Address::Register16(DE), A), 1, 2),
@@ -486,9 +486,9 @@ fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0xEA => (Op::Store(Address::Immediate16(imm16), A), 3, 2),
 
         0xE0 => (Op::SetIO(imm8), 2, 3),
-        0xEC => (Op::SetIOC, 1, 3),
+        0xE2 => (Op::SetIOC, 1, 3),
         0xF0 => (Op::ReadIO(imm8), 2, 3),
-        0xFC => (Op::ReadIOC, 1, 3),
+        0xF2 => (Op::ReadIOC, 1, 3),
 
         0xC1 => (Op::Pop(BC), 1, 3),
         0xD1 => (Op::Pop(DE), 1, 3),
@@ -509,7 +509,7 @@ fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 
 ///! Decode ALU operations.
 fn decode_jump(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
-    let dest16 = util::bytes_to_u16(&[rom.read(pc + 1), rom.read(pc + 2)]);
+    let dest16 = util::bytes_to_u16(&[rom.read(pc + 2), rom.read(pc + 1)]);
     let relative_dest = (((pc + 2) as isize) + ((rom.read(pc + 1) as i8) as isize)) as u16;
     let inst = match rom.read(pc) {
         // Conditional jumps take an extra cycle if they're taken.
