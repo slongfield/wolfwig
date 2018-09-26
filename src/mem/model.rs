@@ -93,6 +93,7 @@ impl Memory {
     }
 
     pub fn write(&mut self, address: usize, val: u8) {
+        info!("Writing 0x{:02X} to addr 0x{:04X}", val, address);
         match address {
             0x0000..=0x7FFF => {}
             addr @ 0x8000..=0x9FFF => self.vram[addr - 0x8000] = val,

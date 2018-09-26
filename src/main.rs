@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate structopt;
+extern crate env_logger;
 
 extern crate wolfwig;
 
@@ -20,16 +21,19 @@ struct Opt {
 }
 
 fn main() {
+    env_logger::init();
     let opt = Opt::from_args();
     let mut wolfwig = wolfwig::Wolfwig::from_files(&opt.bootrom, &opt.rom).unwrap();
     wolfwig.print_header();
 
-    let mut pc = 0;
     let mut buf = String::new();
+    // Skip over zeroing out the RAM
+    for _ in 0..0xBFFE {
+        let pc = wolfwig.step();
+    }
     loop {
-        pc = wolfwig.step();
-        println!("Executed pc {}", pc);
-        stdin().read_line(&mut buf).unwrap();
+        let pc = wolfwig.step();
+        // stdin().read_line(&mut buf).unwrap();
         if pc == 0x100 {
             break;
         }

@@ -105,10 +105,10 @@ impl Registers {
 
     pub fn read16(&self, r: Reg16) -> u16 {
         match r {
-            Reg16::AF => u16::from(self.a) << 8 & u16::from(self.f),
-            Reg16::BC => u16::from(self.b) << 8 & u16::from(self.c),
-            Reg16::DE => u16::from(self.d) << 8 & u16::from(self.e),
-            Reg16::HL => u16::from(self.h) << 8 & u16::from(self.l),
+            Reg16::AF => u16::from(self.a) << 8 | u16::from(self.f),
+            Reg16::BC => u16::from(self.b) << 8 | u16::from(self.c),
+            Reg16::DE => u16::from(self.d) << 8 | u16::from(self.e),
+            Reg16::HL => u16::from(self.h) << 8 | u16::from(self.l),
             Reg16::SP => self.sp,
             Reg16::PC => self.pc,
         }
@@ -180,7 +180,7 @@ impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
-            "A: 0x{:X} B: 0x{:X} C: 0x{:X} D: 0x{:X} E: 0x{:X} H: 0x{:X} L: 0x{:X}",
+            "A: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X}",
             self.read8(Reg8::A),
             self.read8(Reg8::B),
             self.read8(Reg8::C),
@@ -191,7 +191,7 @@ impl fmt::Display for Registers {
         )?;
         writeln!(
             f,
-            "AF: 0x{:X} BC: 0x{:X} DE: 0x{:X} HL: 0x{:X} SP: 0x{:X} PC: 0x{:X}",
+            "AF: {:04X} BC: {:04X} DE: {:04X} HL: {:04X} SP: {:04X} PC: {:04X}",
             self.read16(Reg16::AF),
             self.read16(Reg16::BC),
             self.read16(Reg16::DE),

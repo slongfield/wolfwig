@@ -9,6 +9,7 @@ use util;
 ///! Op
 /// TODO(slongfield): Encode the microops that make up these instructions, and the flags that
 /// they affect. Right now, mostly just doing this to display the instructions.
+#[derive(Debug)]
 pub enum Op {
     AluOp(AluOp),
     Call(u16),
@@ -45,6 +46,8 @@ pub enum Op {
     WideStore(Address, Reg16),
 }
 
+// TODO(slongfield): Refactor this a bit.
+// Make Jump operations their own kind of Op, with taken/not taken latencies.
 impl fmt::Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -72,8 +75,8 @@ impl fmt::Display for Op {
             Op::Return => write!(f, "RET"),
             Op::ReturnAndEnableInterrupts => write!(f, "RETI"),
             Op::Set(dest, val) => write!(f, "LD {} 0x{:X}", dest, val),
-            Op::SetIO(offset) => write!(f, "LD A,0xFF00+0x{:X}", offset),
-            Op::SetIOC => write!(f, "LD A,(FF00+C)"),
+            Op::SetIO(offset) => write!(f, "LD 0xFF00+0x{:X},A", offset),
+            Op::SetIOC => write!(f, "LD (FF00+C),A"),
             Op::SetWide(dest, val) => write!(f, "LD {} 0x{:X}", dest, val),
             Op::Stop => write!(f, "STOP"),
             Op::Store(addr, src) => write!(f, "LD ({}) {}", addr, src),
@@ -85,6 +88,11 @@ impl fmt::Display for Op {
     }
 }
 
+// TODO(slongfield): Rework this structure.
+// Op, Xsrc, YSrc, Dest
+// All of the '16' ones appear to be incorrect. These actually modify a value at the memory
+// location pointed to by the associated register, and the ALU is fully 8-bit.
+#[derive(Debug)]
 pub enum AluOp {
     // Accumulator register has special rotate instructions that run faster.
     Add(Data), // Add to accumulator.
@@ -129,7 +137,9 @@ pub enum AluOp {
     Unknown,
     WideAdd(Reg16, Reg16),
     WideDec(Reg16),
+    AddrDec(Reg16),
     WideInc(Reg16),
+    AddrInc(Reg16),
     Xor(Data), // Xor with accumulator.
 }
 
@@ -178,7 +188,9 @@ impl fmt::Display for AluOp {
             AluOp::Unknown => write!(f, "Unknown ALU OP!!"),
             AluOp::WideAdd(reg_x, reg_y) => write!(f, "ADD {} {}", reg_x, reg_y),
             AluOp::WideDec(reg) => write!(f, "DEC {}", reg),
+            AluOp::AddrDec(reg) => write!(f, "DEC ({})", reg),
             AluOp::WideInc(reg) => write!(f, "INC {}", reg),
+            AluOp::AddrInc(reg) => write!(f, "INC ({})", reg),
             AluOp::Xor(data) => write!(f, "XOR {}", data),
         }
     }
@@ -254,12 +266,12 @@ fn decode_alu(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x04 => (AluOp::Inc(B), 1, 1),
         0x14 => (AluOp::Inc(D), 1, 1),
         0x24 => (AluOp::Inc(H), 1, 1),
-        0x34 => (AluOp::WideInc(HL), 1, 1),
+        0x34 => (AluOp::AddrInc(HL), 1, 1),
 
         0x05 => (AluOp::Dec(B), 1, 1),
         0x15 => (AluOp::Dec(D), 1, 1),
         0x25 => (AluOp::Dec(H), 1, 1),
-        0x35 => (AluOp::WideDec(HL), 1, 1),
+        0x35 => (AluOp::AddrDec(HL), 1, 1),
 
         0x07 => (AluOp::RotateLeftIntoCarry, 1, 1),
         0x17 => (AluOp::RotateLeftThroughCarry, 1, 1),
