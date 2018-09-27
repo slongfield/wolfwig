@@ -4,7 +4,6 @@ extern crate env_logger;
 
 extern crate wolfwig;
 
-use std::io::stdin;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -18,6 +17,10 @@ struct Opt {
     /// Bootrom
     #[structopt(short = "b", long = "bootrom", parse(from_os_str))]
     bootrom: PathBuf,
+
+    /// Should the emulator start in debug mode
+    #[structopt(short = "d", long = "debug")]
+    debug: bool,
 }
 
 fn main() {
@@ -26,16 +29,14 @@ fn main() {
     let mut wolfwig = wolfwig::Wolfwig::from_files(&opt.bootrom, &opt.rom).unwrap();
     wolfwig.print_header();
 
-    let mut buf = String::new();
-    // Skip over zeroing out the RAM
-    for _ in 0..0xBFFE {
-        let pc = wolfwig.step();
-    }
-    loop {
-        let pc = wolfwig.step();
-        // stdin().read_line(&mut buf).unwrap();
-        if pc == 0x100 {
-            break;
+    if opt.debug {
+        let mut debug = wolfwig::debug::Debug::new(wolfwig);
+        loop {
+            debug.step();
+        }
+    } else {
+        loop {
+            wolfwig.step();
         }
     }
 }

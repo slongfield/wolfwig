@@ -5,6 +5,8 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
+pub mod debug;
+
 mod cpu;
 mod mem;
 mod serial;
@@ -13,8 +15,8 @@ mod util;
 ///! Wolfwig is the main object in the emulator that owns everything.
 ///! TODO(slongfield): Write some actual documentation.
 pub struct Wolfwig {
+    pub mem: mem::model::Memory,
     cpu: cpu::lr25902::LR25902,
-    mem: mem::model::Memory,
     serial: serial::Serial,
 }
 
@@ -44,6 +46,18 @@ impl Wolfwig {
 
     pub fn print_header(&self) {
         println!("{}", self.mem.header);
+    }
+
+    pub fn print_registers(&self) {
+        println!("{}", self.cpu.regs);
+    }
+
+    pub fn print_reg8(&self, reg: cpu::registers::Reg8) {
+        println!("0x{:02X}", self.cpu.regs.read8(reg));
+    }
+
+    pub fn print_reg16(&self, reg: cpu::registers::Reg16) {
+        println!("0x{:02X}", self.cpu.regs.read16(reg));
     }
 
     pub fn dump_instructions(&self, start_pc: usize, end_pc: usize) {

@@ -22,7 +22,7 @@ impl NextOp {
 
 ///! Emulation of the Sharp 8-bit LR25902 processor.
 pub struct LR25902 {
-    regs: Registers,
+    pub regs: Registers,
     next_op: NextOp,
     cycle: usize,
 }
