@@ -6,6 +6,7 @@ use cpu::decode;
 use cpu::registers;
 use std::collections::HashSet;
 use std::io::{stdin, stdout, Write};
+use std::iter::Iterator;
 use std::process;
 
 pub struct Debug {
@@ -40,9 +41,19 @@ fn to_int32(s: &str) -> Option<u32> {
     None
 }
 
+fn next_as_int32(iter: &mut Iterator<Item = &str>) -> Option<u32> {
+    if let Some(val) = iter.next() {
+        if let Some(parsed) = to_int32(val) {
+            return Some(parsed);
+        }
+        println!("Could not parse {}", val);
+    }
+    None
+}
+
 impl Debug {
-    pub fn new(wolfwig: Wolfwig) -> Debug {
-        Debug {
+    pub fn new(wolfwig: Wolfwig) -> Self {
+        Self {
             wolfwig,
             cycle: 0,
             pc: 0,
@@ -55,11 +66,8 @@ impl Debug {
 
     pub fn step(&mut self) -> u16 {
         self.pc = self.wolfwig.step();
-        if self.pc != self.last_pc && self.run {
-            if self.breakpoints.contains(&self.pc) {
-                println!("Hit breakpoint {}", self.pc);
-                self.run = false;
-            }
+        if self.pc != self.last_pc && self.run && self.breakpoints.contains(&self.pc) {
+            self.run = false;
         }
         if self.pc != self.last_pc && !self.run {
             let (op, _, _) = decode::decode(&self.wolfwig.mem, self.pc as usize);
@@ -70,55 +78,73 @@ impl Debug {
             if self.steps > 0 {
                 self.steps -= 1;
             } else {
-                let mut buf = String::new();
-                print!("> ");
-                stdout().flush().ok().expect("Could not flush stdout");
-                stdin().read_line(&mut buf).unwrap();
-                let mut split = buf.trim_right().split(" ");
-                match split.next() {
-                    Some("r") | Some("run") => self.run = true,
-                    Some("n") | Some("next") | Some("") => match split.next() {
-                        Some(val) => match to_int32(val) {
-                            Some(steps) => self.steps = steps,
-                            _ => println!("Could not parse {}", val),
-                        },
-                        _ => {}
-                    },
-                    Some("b") | Some("breakpoint") => match split.next() {
-                        Some(val) => match to_int32(val) {
-                            Some(pc) => {
-                                self.breakpoints.insert(pc as u16);
-                            }
-                            _ => println!("Could not parse {}", val),
-                        },
-                        _ => {}
-                    },
-                    Some("d") | Some("delete") => match split.next() {
-                        Some(val) => match to_int32(val) {
-                            Some(pc) => {
-                                self.breakpoints.remove(&(pc as u16));
-                            }
-                            _ => println!("Could not parse {}", val),
-                        },
-                        _ => {}
-                    },
-                    Some("i") | Some("info") => println!("{:?}", self.breakpoints),
-                    Some("h") | Some("help") => println!("{}", HELP),
-                    Some("p") | Some("print") => match split.next() {
-                        Some("A") => self.wolfwig.print_reg8(registers::Reg8::A),
-                        None => self.wolfwig.print_registers(),
-                        Some(other) => println!("Uknown register or memory address: {}", other),
-                    },
-                    Some("q") | Some("quit") => process::exit(0),
-                    cmd => println!(
-                        "Unrecognized command: {:?}. Type 'help' for valid comamnds",
-                        cmd
-                    ),
-                }
+                self.prompt()
             }
         }
         self.last_pc = self.pc;
         self.cycle += 1;
         self.pc
+    }
+
+    fn prompt(&mut self) {
+        loop {
+            let mut buf = String::new();
+            print!("> ");
+            stdout().flush().expect("Could not flush stdout");
+            stdin().read_line(&mut buf).unwrap();
+            let mut split = buf.trim_right().split(' ');
+            match split.next() {
+                Some("r") | Some("run") => {
+                    self.run = true;
+                    break;
+                }
+                Some("n") | Some("next") | Some("") => {
+                    if let Some(steps) = next_as_int32(&mut split) {
+                        self.steps = steps;
+                    };
+                    break;
+                }
+                Some("b") | Some("breakpoint") => {
+                    if let Some(pc) = next_as_int32(&mut split) {
+                        self.breakpoints.insert(pc as u16);
+                    }
+                }
+                Some("d") | Some("delete") => {
+                    if let Some(pc) = next_as_int32(&mut split) {
+                        self.breakpoints.remove(&(pc as u16));
+                    }
+                }
+                Some("i") | Some("info") => println!("{:?}", self.breakpoints),
+                Some("h") | Some("help") => println!("{}", HELP),
+                Some("p") | Some("print") => match split.next() {
+                    Some("A") => self.wolfwig.print_reg8(registers::Reg8::A),
+                    Some("B") => self.wolfwig.print_reg8(registers::Reg8::B),
+                    Some("C") => self.wolfwig.print_reg8(registers::Reg8::C),
+                    Some("D") => self.wolfwig.print_reg8(registers::Reg8::D),
+                    Some("E") => self.wolfwig.print_reg8(registers::Reg8::E),
+                    Some("H") => self.wolfwig.print_reg8(registers::Reg8::H),
+                    Some("L") => self.wolfwig.print_reg8(registers::Reg8::L),
+                    Some("AF") => self.wolfwig.print_reg16(registers::Reg16::AF),
+                    Some("BC") => self.wolfwig.print_reg16(registers::Reg16::BC),
+                    Some("DE") => self.wolfwig.print_reg16(registers::Reg16::DE),
+                    Some("HL") => self.wolfwig.print_reg16(registers::Reg16::HL),
+                    Some("SP") => self.wolfwig.print_reg16(registers::Reg16::SP),
+                    Some("PC") => self.wolfwig.print_reg16(registers::Reg16::PC),
+                    Some(val) => match to_int32(val) {
+                        Some(addr) if addr <= 0xFFFF => {
+                            println!("0x{:02X}", self.wolfwig.mem.read(addr as usize))
+                        }
+                        Some(addr) => println!("Addr 0x{:X} too large", addr),
+                        _ => println!("Could not parse {}", val),
+                    },
+                    None => self.wolfwig.print_registers(),
+                },
+                Some("q") | Some("quit") => process::exit(0),
+                cmd => println!(
+                    "Unrecognized command: {:?}. Type 'help' for valid comamnds",
+                    cmd
+                ),
+            }
+        }
     }
 }

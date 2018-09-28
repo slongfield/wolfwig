@@ -48,9 +48,9 @@ const SERIAL_BIT: u8 = 1 << 3;
 const JOYPAD_BIT: u8 = 1 << 4;
 
 impl Memory {
-    pub fn new(bootrom: Vec<u8>, rom: Vec<u8>) -> Memory {
+    pub fn new(bootrom: Vec<u8>, rom: Vec<u8>) -> Self {
         let header = header::Header::new(&rom);
-        Memory {
+        Self {
             header,
             bootrom,
             rom,

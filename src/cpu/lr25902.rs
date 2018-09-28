@@ -11,8 +11,8 @@ struct NextOp {
 }
 
 impl NextOp {
-    fn new() -> NextOp {
-        NextOp {
+    fn new() -> Self {
+        Self {
             delay_cycles: 0,
             pc_offset: 0,
             op: Op::Nop,
@@ -28,8 +28,8 @@ pub struct LR25902 {
 }
 
 impl LR25902 {
-    pub fn new() -> LR25902 {
-        LR25902 {
+    pub fn new() -> Self {
+        Self {
             regs: Registers::new(),
             next_op: NextOp::new(),
             cycle: 0,
@@ -57,7 +57,7 @@ impl LR25902 {
         );
         if self.next_op.delay_cycles == 0 {
             let op = mem::replace(&mut self.next_op, NextOp::new());
-            let pc = self.execute_op(mem, op);
+            let pc = self.execute_op(mem, &op);
             let (op, size, cycles) = decode::decode(mem, pc as usize);
             self.next_op.op = op;
             self.next_op.pc_offset = size as u16;
@@ -69,7 +69,7 @@ impl LR25902 {
         self.regs.read16(Reg16::PC)
     }
 
-    fn execute_op(&mut self, mem: &mut Memory, op: NextOp) -> u16 {
+    fn execute_op(&mut self, mem: &mut Memory, op: &NextOp) -> u16 {
         //println!("Executing op {} ", op.op);
         let pc = self.regs.read16(Reg16::PC);
         let mut next_pc = pc + op.pc_offset;
@@ -189,7 +189,7 @@ impl LR25902 {
             AluOp::TestBit(reg, bit) => {
                 let data = self.regs.read8(*reg);
                 self.regs
-                    .set_flag(Flag::Zero, (data & (u8::from(1) << bit)) == 0);
+                    .set_flag(Flag::Zero, (data & ((1 << bit) as u8)) == 0);
             }
             AluOp::Dec(reg) => {
                 let data = self.regs.read8(*reg);

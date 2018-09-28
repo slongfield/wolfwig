@@ -29,10 +29,10 @@ fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
 }
 
 impl Wolfwig {
-    pub fn from_files(bootrom: &Path, rom: &Path) -> Result<Wolfwig, io::Error> {
+    pub fn from_files(bootrom: &Path, rom: &Path) -> Result<Self, io::Error> {
         let bootrom = read_rom_from_file(bootrom)?;
         let rom = read_rom_from_file(rom)?;
-        Ok(Wolfwig {
+        Ok(Self {
             mem: mem::model::Memory::new(bootrom, rom),
             cpu: cpu::lr25902::LR25902::new(),
             serial: serial::Serial::new(None),

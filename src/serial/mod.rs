@@ -15,22 +15,22 @@ impl Serial {
     const CONTROL: usize = 0xFF02;
     const START: u8 = 1 << 7;
 
-    pub fn new(channel: Option<mpsc::Sender<u8>>) -> Serial {
-        Serial { channel }
+    pub fn new(channel: Option<mpsc::Sender<u8>>) -> Self {
+        Self { channel }
     }
 
     pub fn step(&mut self, mem: &mut Memory) {
-        let control = mem.read(Serial::CONTROL);
-        if (control & Serial::START) != 0 {
+        let control = mem.read(Self::CONTROL);
+        if (control & Self::START) != 0 {
             if let Some(ref mut sender) = self.channel {
-                let data = mem.read(Serial::DATA);
+                let data = mem.read(Self::DATA);
                 // TODO(slongfield): Handle error.
                 sender.send(data).unwrap();
             }
-            mem.write(Serial::CONTROL, control & !Serial::START);
+            mem.write(Self::CONTROL, control & !Self::START);
             // TODO(slongfield): Two-way communication. Normally data is shifted in here from the
             // external source as its shifted out over the course of 8 cycles.
-            mem.write(Serial::DATA, 0);
+            mem.write(Self::DATA, 0);
         }
     }
 }

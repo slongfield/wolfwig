@@ -70,7 +70,7 @@ impl fmt::Display for Op {
             Op::Pop(reg) => write!(f, "POP {}", reg),
             Op::Push(reg) => write!(f, "PUSH {}", reg),
             Op::ReadIO(offset) => write!(f, "LD 0xFF00+0x{:X}", offset),
-            Op::ReadIOC => write!(f, "LD (FF00+C),A"),
+            Op::ReadIOC => write!(f, "LD A,(FF00+C)"),
             Op::Reset(offset) => write!(f, "RST {:X}H", offset),
             Op::Return => write!(f, "RET"),
             Op::ReturnAndEnableInterrupts => write!(f, "RETI"),
@@ -295,11 +295,11 @@ fn decode_alu(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x3B => (AluOp::WideDec(SP), 1, 2),
 
         0x0C => (AluOp::Inc(C), 1, 1),
-        0x1C => (AluOp::Inc(D), 1, 1),
+        0x1C => (AluOp::Inc(E), 1, 1),
         0x2C => (AluOp::Inc(L), 1, 1),
         0x3C => (AluOp::Inc(A), 1, 1),
 
-        0x0D => (AluOp::Dec(D), 1, 1),
+        0x0D => (AluOp::Dec(C), 1, 1),
         0x1D => (AluOp::Dec(E), 1, 1),
         0x2D => (AluOp::Dec(L), 1, 1),
         0x3D => (AluOp::Dec(A), 1, 1),
@@ -661,7 +661,7 @@ fn decode_extended(opcode: u8) -> (Op, usize, usize) {
         0x4C => (AluOp::TestBit(H, 1), 2),
         0x4D => (AluOp::TestBit(L, 1), 2),
         0x4E => (AluOp::TestBit16(HL, 1), 4),
-        0x4F => (AluOp::TestBit(A, 2), 2),
+        0x4F => (AluOp::TestBit(A, 1), 2),
 
         0x50 => (AluOp::TestBit(B, 2), 2),
         0x51 => (AluOp::TestBit(C, 2), 2),
@@ -734,7 +734,7 @@ fn decode_extended(opcode: u8) -> (Op, usize, usize) {
         0x8C => (AluOp::ResetBit(H, 1), 2),
         0x8D => (AluOp::ResetBit(L, 1), 2),
         0x8E => (AluOp::ResetBit16(HL, 1), 4),
-        0x8F => (AluOp::ResetBit(A, 2), 2),
+        0x8F => (AluOp::ResetBit(A, 1), 2),
 
         0x90 => (AluOp::ResetBit(B, 2), 2),
         0x91 => (AluOp::ResetBit(C, 2), 2),
@@ -807,7 +807,7 @@ fn decode_extended(opcode: u8) -> (Op, usize, usize) {
         0xCC => (AluOp::SetBit(H, 1), 2),
         0xCD => (AluOp::SetBit(L, 1), 2),
         0xCE => (AluOp::SetBit16(HL, 1), 4),
-        0xCF => (AluOp::SetBit(A, 2), 2),
+        0xCF => (AluOp::SetBit(A, 1), 2),
 
         0xD0 => (AluOp::SetBit(B, 2), 2),
         0xD1 => (AluOp::SetBit(C, 2), 2),

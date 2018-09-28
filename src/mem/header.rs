@@ -36,8 +36,8 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(bytes: &[u8]) -> Header {
-        Header {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self {
             nintendo: bytes[NINTENDO.0..(NINTENDO.1 + 1)].to_vec(),
             title: str::from_utf8(&bytes[TITLE.0..(TITLE.1)])
                 .unwrap()
