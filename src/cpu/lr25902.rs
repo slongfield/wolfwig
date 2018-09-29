@@ -219,6 +219,46 @@ impl LR25902 {
                 mem.write(addr, data + 1);
             }
 
+            AluOp::RotateLeftThroughCarry => {
+                let a = u16::from(self.regs.read8(Reg8::A));
+                let carry = u16::from(self.regs.read_flag(Flag::Carry));
+                let rot_data = (a | (carry << 9)) << 1;
+                let carry = ((1 << 9) & rot_data) != 0;
+                let low_bit = u8::from(((1 << 10) & rot_data) != 0);
+                let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+                self.regs.set8(Reg8::A, new_data);
+                self.regs.set_flag(Flag::Carry, carry);
+            }
+            AluOp::Rotate8LeftThroughCarry(reg) => {
+                let reg_data = u16::from(self.regs.read8(*reg));
+                let carry = u16::from(self.regs.read_flag(Flag::Carry));
+                let rot_data = (reg_data | (carry << 9)) << 1;
+                let carry = ((1 << 9) & rot_data) != 0;
+                let low_bit = u8::from(((1 << 10) & rot_data) != 0);
+                let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+                self.regs.set8(*reg, new_data);
+                self.regs.set_flag(Flag::Carry, carry);
+            }
+
+            AluOp::Sub(Data::Register8(reg)) => {
+                let x = self.regs.read8(Reg8::A) as i8;
+                let y = self.regs.read8(*reg) as i8;
+                let data = x - y;
+                // TODO(slongfield): Update carry flags.
+                self.regs.set_flag(Flag::Zero, data == 0);
+                self.regs.set_flag(Flag::Subtract, true);
+                self.regs.set8(Reg8::A, data as u8);
+            }
+
+            AluOp::Compare(Data::Immediate8(val)) => {
+                let x = self.regs.read8(Reg8::A) as i8;
+                let y = *val as i8;
+                let data = x - y;
+                // TODO(slongfield): Update carry flags.
+                self.regs.set_flag(Flag::Zero, data == 0);
+                self.regs.set_flag(Flag::Subtract, true);
+            }
+
             _ => error!(
                 "Cycle: {} PC: 0x{:04X} Unknown ALU op: {:?}. Regs: {}",
                 self.cycle,
