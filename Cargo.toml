@@ -8,6 +8,7 @@ clippy =  {version = "*", optional = true}
 log = "0.4"
 structopt = "0.2"
 env_logger = "0.5"
+sdl2 = "0.31"
 
 [features]
 default = []

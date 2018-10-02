@@ -17,6 +17,7 @@ pub struct Debug {
     run: bool,
     steps: u32,
     breakpoints: HashSet<u16>,
+    verbose: bool,
 }
 
 const HELP: &str = "Available commands:
@@ -27,6 +28,7 @@ const HELP: &str = "Available commands:
  [r]un        -- Run freely, until breakpoint.
  [p]rint      -- register name prints specific register, 0xNNNN prints memory address,
                  blank prints all registers.
+ [v]erbose   -- enable verbose printing of instruction stream
  [q]uit       -- quit";
 
 fn to_int32(s: &str) -> Option<u32> {
@@ -61,13 +63,22 @@ impl Debug {
             run: false,
             steps: 0,
             breakpoints: HashSet::new(),
+            verbose: false,
         }
     }
 
     pub fn step(&mut self) -> u16 {
         self.pc = self.wolfwig.step();
-        if self.pc != self.last_pc && self.run && self.breakpoints.contains(&self.pc) {
-            self.run = false;
+        if self.pc != self.last_pc && self.run {
+            if self.breakpoints.contains(&self.pc) {
+                self.run = false;
+            } else if self.verbose {
+                let (op, _, _) = decode::decode(&self.wolfwig.mem, self.pc as usize);
+                println!(
+                    "PC: 0x{:02X} Cycle: 0x{:04X} Op: {}",
+                    self.pc, self.cycle, op
+                );
+            }
         }
         if self.pc != self.last_pc && !self.run {
             let (op, _, _) = decode::decode(&self.wolfwig.mem, self.pc as usize);
@@ -139,6 +150,7 @@ impl Debug {
                     },
                     None => self.wolfwig.print_registers(),
                 },
+                Some("v") | Some("verbose") => self.verbose = !self.verbose,
                 Some("q") | Some("quit") => process::exit(0),
                 cmd => println!(
                     "Unrecognized command: {:?}. Type 'help' for valid comamnds",

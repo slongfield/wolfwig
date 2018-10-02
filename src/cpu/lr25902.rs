@@ -192,17 +192,20 @@ impl LR25902 {
                     .set_flag(Flag::Zero, (data & ((1 << bit) as u8)) == 0);
             }
             AluOp::Dec(reg) => {
-                let data = self.regs.read8(*reg);
-                self.regs.set8(*reg, data - 1);
+                let data = self.regs.read8(*reg).wrapping_sub(1);
+                self.regs.set8(*reg, data);
+                self.regs.set_flag(Flag::Zero, data == 0);
             }
             AluOp::WideDec(reg) => {
-                let data = self.regs.read16(*reg);
-                self.regs.set16(*reg, data - 1);
+                let data = self.regs.read16(*reg).wrapping_sub(1);
+                self.regs.set16(*reg, data);
+                self.regs.set_flag(Flag::Zero, data == 0);
             }
             AluOp::AddrDec(addr_reg) => {
                 let addr = self.regs.read16(*addr_reg) as usize;
-                let data = mem.read(addr);
-                mem.write(addr, data - 1);
+                let data = mem.read(addr).wrapping_sub(1);
+                mem.write(addr, data);
+                self.regs.set_flag(Flag::Zero, data == 0);
             }
             AluOp::Inc(reg) => {
                 let data = self.regs.read8(*reg);
@@ -269,3 +272,5 @@ impl LR25902 {
         }
     }
 }
+
+// TODO(slongfield): Test Rotate Left Through Carry. It seems to be broken.

@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate log;
 
+extern crate sdl2;
+
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
@@ -9,6 +11,7 @@ pub mod debug;
 
 mod cpu;
 mod mem;
+mod ppu;
 mod serial;
 mod util;
 
@@ -18,6 +21,7 @@ pub struct Wolfwig {
     pub mem: mem::model::Memory,
     cpu: cpu::lr25902::LR25902,
     serial: serial::Serial,
+    ppu: ppu::Ppu,
 }
 
 fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
@@ -36,11 +40,13 @@ impl Wolfwig {
             mem: mem::model::Memory::new(bootrom, rom),
             cpu: cpu::lr25902::LR25902::new(),
             serial: serial::Serial::new(None),
+            ppu: ppu::Ppu::new(),
         })
     }
 
     pub fn step(&mut self) -> u16 {
         self.serial.step(&mut self.mem);
+        self.ppu.step(&mut self.mem);
         self.cpu.step(&mut self.mem)
     }
 
