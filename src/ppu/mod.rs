@@ -13,6 +13,11 @@ const MAX_Y: u32 = 264;
 
 const CYCLE_LEN: usize = 70224;
 
+// LCD Y coordinate, current line being rendered.
+const LY: usize = 0xFF44;
+
+const LINE_COUNT: u8 = 154;
+
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
     canvas: sdl2::render::Canvas<sdl2::video::Window>,
@@ -42,6 +47,13 @@ impl Ppu {
             self.render(mem);
             ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
             self.canvas.present();
+        }
+        // Every 456 cycles advance one "line".
+        // This is a fake placeholder for now. Need to do more realistic handling of the lines to
+        // actually show data. This just gets through the bootloader.
+        if (self.cycle % 456 == 0) {
+            let ly = mem.read(LY);
+            mem.write(LY, (ly + 1) % LINE_COUNT);
         }
         self.cycle = (self.cycle + 1) % CYCLE_LEN;
     }

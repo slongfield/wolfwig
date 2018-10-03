@@ -246,7 +246,17 @@ impl LR25902 {
             AluOp::Sub(Data::Register8(reg)) => {
                 let x = self.regs.read8(Reg8::A) as i8;
                 let y = self.regs.read8(*reg) as i8;
-                let data = x - y;
+                let data = x.wrapping_sub(y);
+                // TODO(slongfield): Update carry flags.
+                self.regs.set_flag(Flag::Zero, data == 0);
+                self.regs.set_flag(Flag::Subtract, true);
+                self.regs.set8(Reg8::A, data as u8);
+            }
+
+            AluOp::Add(Data::Register16(reg)) => {
+                let x = self.regs.read8(Reg8::A) as i8;
+                let y = mem.read(self.regs.read16(*reg) as usize);
+                let data = x.wrapping_add(y as i8);
                 // TODO(slongfield): Update carry flags.
                 self.regs.set_flag(Flag::Zero, data == 0);
                 self.regs.set_flag(Flag::Subtract, true);
@@ -256,7 +266,16 @@ impl LR25902 {
             AluOp::Compare(Data::Immediate8(val)) => {
                 let x = self.regs.read8(Reg8::A) as i8;
                 let y = *val as i8;
-                let data = x - y;
+                let data = x.wrapping_sub(y);
+                // TODO(slongfield): Update carry flags.
+                self.regs.set_flag(Flag::Zero, data == 0);
+                self.regs.set_flag(Flag::Subtract, true);
+            }
+
+            AluOp::Compare(Data::Register16(reg)) => {
+                let x = self.regs.read8(Reg8::A) as i8;
+                let y = mem.read(self.regs.read16(*reg) as usize);
+                let data = x.wrapping_sub(y as i8);
                 // TODO(slongfield): Update carry flags.
                 self.regs.set_flag(Flag::Zero, data == 0);
                 self.regs.set_flag(Flag::Subtract, true);
