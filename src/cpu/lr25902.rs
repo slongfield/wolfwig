@@ -225,9 +225,9 @@ impl LR25902 {
             AluOp::RotateLeftThroughCarry => {
                 let a = u16::from(self.regs.read8(Reg8::A));
                 let carry = u16::from(self.regs.read_flag(Flag::Carry));
-                let rot_data = (a | (carry << 9)) << 1;
-                let carry = ((1 << 9) & rot_data) != 0;
-                let low_bit = u8::from(((1 << 10) & rot_data) != 0);
+                let rot_data = (a | (carry << 8)) << 1;
+                let carry = ((1 << 8) & rot_data) != 0;
+                let low_bit = u8::from(((1 << 9) & rot_data) != 0);
                 let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
                 self.regs.set8(Reg8::A, new_data);
                 self.regs.set_flag(Flag::Carry, carry);
@@ -235,9 +235,9 @@ impl LR25902 {
             AluOp::Rotate8LeftThroughCarry(reg) => {
                 let reg_data = u16::from(self.regs.read8(*reg));
                 let carry = u16::from(self.regs.read_flag(Flag::Carry));
-                let rot_data = (reg_data | (carry << 9)) << 1;
-                let carry = ((1 << 9) & rot_data) != 0;
-                let low_bit = u8::from(((1 << 10) & rot_data) != 0);
+                let rot_data = (reg_data | (carry << 8)) << 1;
+                let carry = ((1 << 8) & rot_data) != 0;
+                let low_bit = u8::from(((1 << 9) & rot_data) != 0);
                 let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
                 self.regs.set8(*reg, new_data);
                 self.regs.set_flag(Flag::Carry, carry);
@@ -273,4 +273,23 @@ impl LR25902 {
     }
 }
 
-// TODO(slongfield): Test Rotate Left Through Carry. It seems to be broken.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rotate_left_carry() {
+        let mut cpu = LR25902::new();
+        cpu.regs.set8(Reg8::A, 0xFF);
+
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        cpu.execute_alu_op(&AluOp::RotateLeftThroughCarry, &mut mem);
+
+        assert_eq!(cpu.regs.read8(Reg8::A), (0xFF << 1) & 0xFF);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+
+        cpu.execute_alu_op(&AluOp::RotateLeftThroughCarry, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0b1111_1101);
+    }
+}

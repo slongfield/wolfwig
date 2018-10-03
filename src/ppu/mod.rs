@@ -1,6 +1,8 @@
 ///! PPU is the Pixel Processing Unit, which displays the Gameboy Screen.
 use mem::model::Memory;
 use sdl2::{self, pixels, rect};
+use std::io::{stdout, Write};
+use std::process;
 use std::time::Duration;
 
 // 16 tiles wide, each 8 pixels wide, with a one-pixel spacer. 4 pixels per pixel
@@ -45,8 +47,6 @@ impl Ppu {
     }
 
     fn render(&mut self, mem: &mut Memory) {
-        // Which of the two X bytes is currently being rendered?
-        let mut x_sprite_pos = 0;
         // Which of the four Y bits are being rendered?
         let mut y_spirte_pos = 0;
 
@@ -56,17 +56,25 @@ impl Ppu {
         let mut y_tile_pos = 0;
 
         // Render the background tileset
-        for addr in 0x9800..0x9C00 {
-            let byte = mem.read(addr);
-            for (index, pixel) in [6, 4, 2, 0].iter().enumerate() {
-                let pixel = (byte >> pixel) & u8::from(0x3);
+        for addr in (0x8000..0x8a00).step_by(2) {
+            let upper_byte = mem.read(addr);
+            let lower_byte = mem.read(addr + 1);
+            for (index, pixel) in (0..8).rev().enumerate() {
+                let pixel = (((upper_byte >> pixel) & 1) << 1) | (lower_byte >> pixel);
                 let pcolor = pixel * u8::from(85);
                 self.canvas
                     .set_draw_color(pixels::Color::RGB(pcolor, pcolor, pcolor));
-                let x_pos = x_tile_pos * 8 * 4 + x_tile_pos + x_sprite_pos * 4 * 4 + index * 4;
+                let x_pos = x_tile_pos * 8 * 4 + x_tile_pos + index * 4;
                 let y_pos = y_tile_pos * 8 * 4 + y_tile_pos + y_spirte_pos * 4;
                 self.canvas
                     .fill_rect(rect::Rect::new(x_pos as i32, y_pos as i32, 4, 4));
+            }
+            y_spirte_pos = (y_spirte_pos + 1) % 8;
+            if (y_spirte_pos) == 0 {
+                x_tile_pos = (x_tile_pos + 1) % 16;
+                if x_tile_pos == 0 {
+                    y_tile_pos += 1;
+                }
             }
         }
     }

@@ -92,7 +92,8 @@ fn decode_cartrigte_type(byte: u8) -> String {
     }
 }
 
-///! The Nintendo logo is stored in memory as tiles. Special-purpose renderer here, so it can run without any other dependencies.
+///! The Nintendo logo is stored in memory as pixel tiles, but compressed relative to normal
+///! tiles, representing each 4-pixel chunk with one bit.
 pub fn draw_nintendo(bytes: &[u8], f: &mut fmt::Formatter) -> fmt::Result {
     let mut bits: Vec<bool> = vec![];
     for byte in bytes.iter() {
