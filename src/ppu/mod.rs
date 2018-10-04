@@ -1,8 +1,6 @@
 ///! PPU is the Pixel Processing Unit, which displays the Gameboy Screen.
 use mem::model::Memory;
 use sdl2::{self, pixels, rect};
-use std::io::{stdout, Write};
-use std::process;
 use std::time::Duration;
 
 // 16 tiles wide, each 8 pixels wide, with a one-pixel spacer. 4 pixels per pixel
@@ -51,7 +49,7 @@ impl Ppu {
         // Every 456 cycles advance one "line".
         // This is a fake placeholder for now. Need to do more realistic handling of the lines to
         // actually show data. This just gets through the bootloader.
-        if (self.cycle % 456 == 0) {
+        if self.cycle % 456 == 0 {
             let ly = mem.read(LY);
             mem.write(LY, (ly + 1) % LINE_COUNT);
         }
