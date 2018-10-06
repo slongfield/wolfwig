@@ -21,12 +21,20 @@ struct Opt {
     /// Should the emulator start in debug mode
     #[structopt(short = "d", long = "debug")]
     debug: bool,
+
+    /// Should bytes printed sent out the serial port be printed to the console?
+    #[structopt(short = "p", long = "print_serial")]
+    print_serial: bool,
 }
 
 fn main() {
     env_logger::init();
     let opt = Opt::from_args();
     let mut wolfwig = wolfwig::Wolfwig::from_files(&opt.bootrom, &opt.rom).unwrap();
+    if opt.print_serial {
+        wolfwig.start_print_serial()
+    }
+
     wolfwig.print_header();
 
     if opt.debug {

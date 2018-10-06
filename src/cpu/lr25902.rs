@@ -1,4 +1,4 @@
-use self::decode::{Address, Alu8, Alu8Data, Alu8Op, Op};
+use self::decode::{Address, Alu16, Alu16Data, Alu16Op, Alu8, Alu8Data, Alu8Op, Op};
 use cpu::decode;
 use cpu::registers::{Flag, Reg16, Reg8, Registers};
 use mem::model::Memory;
@@ -61,7 +61,11 @@ impl LR25902 {
             let (op, size, cycles) = decode::decode(mem, pc as usize);
             self.next_op.op = op;
             self.next_op.pc_offset = size as u16;
-            self.next_op.delay_cycles = cycles - 1;
+            if cycles > 0 {
+                self.next_op.delay_cycles = cycles - 1;
+            } else {
+                self.next_op.delay_cycles = 0;
+            }
         } else {
             self.next_op.delay_cycles -= 1;
         }
@@ -108,18 +112,32 @@ impl LR25902 {
                 let data = self.regs.read8(data_reg);
                 let addr = self.regs.read16(addr_reg);
                 mem.write(addr as usize, data);
-                self.regs.set16(addr_reg, addr - 1);
+                self.regs.set16(addr_reg, addr.wrapping_sub(1));
             }
             Op::StoreAndIncrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
                 let addr = self.regs.read16(addr_reg);
                 mem.write(addr as usize, data);
-                self.regs.set16(addr_reg, addr + 1);
+                self.regs.set16(addr_reg, addr.wrapping_add(1));
             }
             Op::Load(reg, Address::Register16(addr_reg)) => {
                 let addr = self.regs.read16(addr_reg);
                 self.regs.set8(reg, mem.read(addr as usize))
             }
+            Op::Load(reg, Address::Immediate16(addr)) => {
+                self.regs.set8(reg, mem.read(addr as usize))
+            }
+            Op::LoadAndIncrement(reg, Address::Register16(addr_reg)) => {
+                let addr = self.regs.read16(addr_reg);
+                self.regs.set8(reg, mem.read(addr as usize));
+                self.regs.set16(addr_reg, addr.wrapping_add(1));
+            }
+            Op::LoadAndDecrement(reg, Address::Register16(addr_reg)) => {
+                let addr = self.regs.read16(addr_reg);
+                self.regs.set8(reg, mem.read(addr as usize));
+                self.regs.set16(addr_reg, addr.wrapping_sub(1));
+            }
+
             Op::Call(new_pc) => {
                 let sp = self.regs.read16(Reg16::SP);
                 mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
@@ -127,6 +145,16 @@ impl LR25902 {
                 self.regs.set16(Reg16::SP, sp - 2);
                 next_pc = new_pc;
             }
+            Op::ConditionalCall(flag, new_pc) => {
+                if self.regs.read_flag(flag) {
+                    let sp = self.regs.read16(Reg16::SP);
+                    mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
+                    mem.write((sp - 2) as usize, (next_pc & 0xFF) as u8);
+                    self.regs.set16(Reg16::SP, sp - 2);
+                    next_pc = new_pc;
+                }
+            }
+
             Op::Return => {
                 let sp = self.regs.read16(Reg16::SP);
                 let pc_low = u16::from(mem.read(sp as usize));
@@ -134,6 +162,16 @@ impl LR25902 {
                 self.regs.set16(Reg16::SP, sp + 2);
                 next_pc = (pc_high << 8) | pc_low;
             }
+            Op::ConditionalReturn(flag) => {
+                if self.regs.read_flag(flag) {
+                    let sp = self.regs.read16(Reg16::SP);
+                    let pc_low = u16::from(mem.read(sp as usize));
+                    let pc_high = u16::from(mem.read((sp + 1) as usize));
+                    self.regs.set16(Reg16::SP, sp + 2);
+                    next_pc = (pc_high << 8) | pc_low;
+                }
+            }
+
             Op::Move(dest, src) => {
                 let data = self.regs.read8(src);
                 self.regs.set8(dest, data);
@@ -162,7 +200,17 @@ impl LR25902 {
                 }
             }
             Op::JumpRelative(new_pc) => next_pc = new_pc,
+            Op::ConditionalJump(flag, new_pc) => {
+                if self.regs.read_flag(flag) {
+                    next_pc = new_pc;
+                }
+            }
+            Op::Jump(Address::Immediate16(new_pc)) => next_pc = new_pc,
+            Op::Jump(Address::Register16(reg)) => {
+                next_pc = self.regs.read16(reg);
+            }
             Op::Alu8(ref alu_op) => self.execute_alu8(&alu_op, mem),
+            Op::Alu16(ref alu_op) => self.execute_alu16(&alu_op),
             _ => error!(
                 "Cycle: {} PC: 0x{:04X} Unknown op: {:?}",
                 self.cycle,
@@ -234,8 +282,8 @@ impl LR25902 {
             Alu8::DecimalAdjust => (None, None, None, None, None),
             Alu8::Decrement => {
                 let out = (x as i8).wrapping_sub(1) as u8;
-                // TODO(slongfield): Half Carry
-                (Some(out), Some(out == 0), Some(true), None, None)
+                let half = ((x & 0xF) as i8).wrapping_sub(1) < 0;
+                (Some(out), Some(out == 0), Some(true), Some(half), None)
             }
             Alu8::Increment => {
                 let out = (x as i8).wrapping_add(1) as u8;
@@ -331,122 +379,33 @@ impl LR25902 {
         }
     }
 
-    /*
-       fn execute_alu_op(&mut self, op: &AluOp, mem: &mut Memory) {
-       match op {
-       AluOp::Xor(Data::Immediate8(data)) => {
-       let a = self.regs.read8(Reg8::A);
-       self.regs.set8(Reg8::A, a ^ data);
-       }
-       AluOp::Xor(Data::Register8(reg)) => {
-       let a = self.regs.read8(Reg8::A);
-       let data = self.regs.read8(*reg);
-       self.regs.set8(Reg8::A, a ^ data);
-       }
-       AluOp::TestBit(reg, bit) => {
-       let data = self.regs.read8(*reg);
-       self.regs
-       .set_flag(Flag::Zero, (data & ((1 << bit) as u8)) == 0);
-       }
-       AluOp::Dec(reg) => {
-       let data = self.regs.read8(*reg).wrapping_sub(1);
-       self.regs.set8(*reg, data);
-       self.regs.set_flag(Flag::Zero, data == 0);
-       }
-       AluOp::WideDec(reg) => {
-       let data = self.regs.read16(*reg).wrapping_sub(1);
-       self.regs.set16(*reg, data);
-       self.regs.set_flag(Flag::Zero, data == 0);
-       }
-       AluOp::AddrDec(addr_reg) => {
-       let addr = self.regs.read16(*addr_reg) as usize;
-       let data = mem.read(addr).wrapping_sub(1);
-       mem.write(addr, data);
-       self.regs.set_flag(Flag::Zero, data == 0);
-       }
-       AluOp::Inc(reg) => {
-       let data = self.regs.read8(*reg);
-       self.regs.set8(*reg, data + 1);
-       }
-       AluOp::WideInc(reg) => {
-       let data = self.regs.read16(*reg);
-       self.regs.set16(*reg, data + 1);
-       }
-
-       AluOp::AddrInc(addr_reg) => {
-       let addr = self.regs.read16(*addr_reg) as usize;
-       let data = mem.read(addr);
-       mem.write(addr, data + 1);
-       }
-
-       AluOp::RotateLeftThroughCarry => {
-       let a = u16::from(self.regs.read8(Reg8::A));
-       let carry = u16::from(self.regs.read_flag(Flag::Carry));
-       let rot_data = (a | (carry << 8)) << 1;
-       let carry = ((1 << 8) & rot_data) != 0;
-       let low_bit = u8::from(((1 << 9) & rot_data) != 0);
-       let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
-       self.regs.set8(Reg8::A, new_data);
-       self.regs.set_flag(Flag::Carry, carry);
-       }
-       AluOp::Rotate8LeftThroughCarry(reg) => {
-       let reg_data = u16::from(self.regs.read8(*reg));
-       let carry = u16::from(self.regs.read_flag(Flag::Carry));
-       let rot_data = (reg_data | (carry << 8)) << 1;
-       let carry = ((1 << 8) & rot_data) != 0;
-       let low_bit = u8::from(((1 << 9) & rot_data) != 0);
-       let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
-       self.regs.set8(*reg, new_data);
-       self.regs.set_flag(Flag::Carry, carry);
-       }
-
-       AluOp::Sub(Data::Register8(reg)) => {
-       let x = self.regs.read8(Reg8::A) as i8;
-let y = self.regs.read8(*reg) as i8;
-let data = x.wrapping_sub(y);
-// TODO(slongfield): Update carry flags.
-self.regs.set_flag(Flag::Zero, data == 0);
-self.regs.set_flag(Flag::Subtract, true);
-self.regs.set8(Reg8::A, data as u8);
-}
-
-AluOp::Add(Data::Register16(reg)) => {
-    let x = self.regs.read8(Reg8::A) as i8;
-    let y = mem.read(self.regs.read16(*reg) as usize);
-    let data = x.wrapping_add(y as i8);
-    // TODO(slongfield): Update carry flags.
-    self.regs.set_flag(Flag::Zero, data == 0);
-    self.regs.set_flag(Flag::Subtract, true);
-    self.regs.set8(Reg8::A, data as u8);
-}
-
-AluOp::Compare(Data::Immediate8(val)) => {
-    let x = self.regs.read8(Reg8::A) as i8;
-    let y = *val as i8;
-    let data = x.wrapping_sub(y);
-    // TODO(slongfield): Update carry flags.
-    self.regs.set_flag(Flag::Zero, data == 0);
-    self.regs.set_flag(Flag::Subtract, true);
-}
-
-AluOp::Compare(Data::Register16(reg)) => {
-    let x = self.regs.read8(Reg8::A) as i8;
-    let y = mem.read(self.regs.read16(*reg) as usize);
-    let data = x.wrapping_sub(y as i8);
-    // TODO(slongfield): Update carry flags.
-    self.regs.set_flag(Flag::Zero, data == 0);
-    self.regs.set_flag(Flag::Subtract, true);
-}
-
-_ => error!(
-    "Cycle: {} PC: 0x{:04X} Unknown ALU op: {:?}. Regs: {}",
-    self.cycle,
-    self.regs.read16(Reg16::PC),
-    op,
-    self.regs
-    ),
-  }
-} */
+    fn execute_alu16(&mut self, op: &Alu16Op) {
+        match op.op {
+            Alu16::Add => match op.y {
+                Alu16Data::Reg(yreg) => {
+                    let x = self.regs.read16(op.dest);
+                    let y = self.regs.read16(yreg);
+                    let out = x.wrapping_add(y);
+                    self.regs.set16(op.dest, out);
+                }
+                Alu16Data::Imm(data) => {
+                    let x = self.regs.read16(op.dest);
+                    let out = x.wrapping_add(data.into());
+                    self.regs.set16(op.dest, out);
+                }
+                Alu16Data::Ignore => {}
+            },
+            Alu16::Decrement => {
+                let x = self.regs.read16(op.dest);
+                self.regs.set16(op.dest, x.wrapping_sub(1));
+            }
+            Alu16::Increment => {
+                let x = self.regs.read16(op.dest);
+                self.regs.set16(op.dest, x.wrapping_add(1));
+            }
+            Alu16::Unknown => {}
+        }
+    }
 }
 
 #[cfg(test)]

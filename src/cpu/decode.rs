@@ -99,8 +99,8 @@ impl fmt::Display for Op {
             Op::Store(addr, src) => write!(f, "LD ({}) {}", addr, src),
             Op::StoreAndDecrement(addr, src) => write!(f, "LD ({}-) {}", addr, src),
             Op::StoreAndIncrement(addr, src) => write!(f, "LD ({}+) {}", addr, src),
+            Op::WideStore(addr, src) => write!(f, "LD ({}) {}", addr, src),
             Op::Unknown(code) => write!(f, "Don't know how to display: 0x{:X}", code),
-            _ => write!(f, "Missed case!"),
         }
     }
 }
@@ -423,9 +423,9 @@ pub enum Alu16 {
 
 #[derive(Debug)]
 pub struct Alu16Op {
-    op: Alu16,
-    dest: Reg16,
-    y: Alu16Data,
+    pub op: Alu16,
+    pub dest: Reg16,
+    pub y: Alu16Data,
 }
 
 impl Alu16Op {

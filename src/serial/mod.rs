@@ -33,6 +33,10 @@ impl Serial {
             mem.write(Self::DATA, 0);
         }
     }
+
+    pub fn connect_channel(&mut self, tx: mpsc::Sender<u8>) {
+        self.channel = Some(tx)
+    }
 }
 
 #[cfg(test)]

@@ -6,6 +6,8 @@ extern crate sdl2;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
+use std::sync::mpsc;
+use std::thread;
 
 pub mod debug;
 
@@ -48,6 +50,15 @@ impl Wolfwig {
         self.serial.step(&mut self.mem);
         self.ppu.step(&mut self.mem);
         self.cpu.step(&mut self.mem)
+    }
+
+    pub fn start_print_serial(&mut self) {
+        let (tx, rx) = mpsc::channel();
+        self.serial.connect_channel(tx);
+        thread::spawn(move || loop {
+            let received = rx.recv().unwrap();
+            println!("Serial: 0x{:02X} ({})", received, char::from(received));
+        });
     }
 
     pub fn print_header(&self) {

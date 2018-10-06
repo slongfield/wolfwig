@@ -72,7 +72,7 @@ impl Ppu {
             for (index, pixel) in (0..8).rev().enumerate() {
                 let index = index as i32;
                 let pixel = (((upper_byte >> pixel) & 1) << 1) | (lower_byte >> pixel);
-                let pcolor = pixel * 85;
+                let pcolor = pixel.wrapping_mul(84);
                 self.canvas
                     .set_draw_color(pixels::Color::RGB(pcolor, pcolor, pcolor));
                 let x_pos = x_tile_pos * 8 * 4 + x_tile_pos + index * 4;
