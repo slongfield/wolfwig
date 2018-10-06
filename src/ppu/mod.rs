@@ -23,7 +23,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn new() -> Ppu {
+    pub fn new() -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
@@ -33,7 +33,7 @@ impl Ppu {
             .build()
             .unwrap();
 
-        Ppu {
+        Self {
             canvas: window.into_canvas().build().unwrap(),
             cycle: 0,
         }
@@ -43,7 +43,7 @@ impl Ppu {
         // Once every 70224 cycles, render.
         if self.cycle == 0 {
             self.render(mem);
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+            ::std::thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
             self.canvas.present();
         }
         // Every 456 cycles advance one "line".
@@ -58,26 +58,28 @@ impl Ppu {
 
     fn render(&mut self, mem: &mut Memory) {
         // Which of the four Y bits are being rendered?
-        let mut y_spirte_pos = 0;
+        let mut y_spirte_pos: i32 = 0;
 
         // Which of the 16 possible X tiles are being rendered?
-        let mut x_tile_pos = 0;
+        let mut x_tile_pos: i32 = 0;
         // Which of the 8 possible Y tiles are being rendered?
-        let mut y_tile_pos = 0;
+        let mut y_tile_pos: i32 = 0;
 
         // Render the background tileset
         for addr in (0x8000..0x8a00).step_by(2) {
             let upper_byte = mem.read(addr);
             let lower_byte = mem.read(addr + 1);
             for (index, pixel) in (0..8).rev().enumerate() {
+                let index = index as i32;
                 let pixel = (((upper_byte >> pixel) & 1) << 1) | (lower_byte >> pixel);
-                let pcolor = pixel * u8::from(85);
+                let pcolor = pixel * 85;
                 self.canvas
                     .set_draw_color(pixels::Color::RGB(pcolor, pcolor, pcolor));
                 let x_pos = x_tile_pos * 8 * 4 + x_tile_pos + index * 4;
                 let y_pos = y_tile_pos * 8 * 4 + y_tile_pos + y_spirte_pos * 4;
                 self.canvas
-                    .fill_rect(rect::Rect::new(x_pos as i32, y_pos as i32, 4, 4));
+                    .fill_rect(rect::Rect::new(x_pos, y_pos, 4, 4))
+                    .expect("Could not draw rect");
             }
             y_spirte_pos = (y_spirte_pos + 1) % 8;
             if (y_spirte_pos) == 0 {

@@ -1,4 +1,4 @@
-use self::decode::{Address, AluOp, Data, Op};
+use self::decode::{Address, Alu8, Alu8Data, Alu8Op, Op};
 use cpu::decode;
 use cpu::registers::{Flag, Reg16, Reg8, Registers};
 use mem::model::Memory;
@@ -162,7 +162,7 @@ impl LR25902 {
                 }
             }
             Op::JumpRelative(new_pc) => next_pc = new_pc,
-            Op::AluOp(ref alu_op) => self.execute_alu_op(&alu_op, mem),
+            Op::Alu8(ref alu_op) => self.execute_alu8(&alu_op, mem),
             _ => error!(
                 "Cycle: {} PC: 0x{:04X} Unknown op: {:?}",
                 self.cycle,
@@ -175,121 +175,278 @@ impl LR25902 {
         next_pc
     }
 
-    fn execute_alu_op(&mut self, op: &AluOp, mem: &mut Memory) {
-        match op {
-            AluOp::Xor(Data::Immediate8(data)) => {
-                let a = self.regs.read8(Reg8::A);
-                self.regs.set8(Reg8::A, a ^ data);
+    fn get_alu8_data(&mut self, data: &Alu8Data, mem: &mut Memory) -> u8 {
+        match data {
+            Alu8Data::Reg(reg) => self.regs.read8(*reg),
+            Alu8Data::Imm(data) => *data,
+            Alu8Data::Addr(reg16) => {
+                let addr = self.regs.read16(*reg16);
+                mem.read(addr as usize)
             }
-            AluOp::Xor(Data::Register8(reg)) => {
-                let a = self.regs.read8(Reg8::A);
-                let data = self.regs.read8(*reg);
-                self.regs.set8(Reg8::A, a ^ data);
-            }
-            AluOp::TestBit(reg, bit) => {
-                let data = self.regs.read8(*reg);
-                self.regs
-                    .set_flag(Flag::Zero, (data & ((1 << bit) as u8)) == 0);
-            }
-            AluOp::Dec(reg) => {
-                let data = self.regs.read8(*reg).wrapping_sub(1);
-                self.regs.set8(*reg, data);
-                self.regs.set_flag(Flag::Zero, data == 0);
-            }
-            AluOp::WideDec(reg) => {
-                let data = self.regs.read16(*reg).wrapping_sub(1);
-                self.regs.set16(*reg, data);
-                self.regs.set_flag(Flag::Zero, data == 0);
-            }
-            AluOp::AddrDec(addr_reg) => {
-                let addr = self.regs.read16(*addr_reg) as usize;
-                let data = mem.read(addr).wrapping_sub(1);
-                mem.write(addr, data);
-                self.regs.set_flag(Flag::Zero, data == 0);
-            }
-            AluOp::Inc(reg) => {
-                let data = self.regs.read8(*reg);
-                self.regs.set8(*reg, data + 1);
-            }
-            AluOp::WideInc(reg) => {
-                let data = self.regs.read16(*reg);
-                self.regs.set16(*reg, data + 1);
-            }
-
-            AluOp::AddrInc(addr_reg) => {
-                let addr = self.regs.read16(*addr_reg) as usize;
-                let data = mem.read(addr);
-                mem.write(addr, data + 1);
-            }
-
-            AluOp::RotateLeftThroughCarry => {
-                let a = u16::from(self.regs.read8(Reg8::A));
-                let carry = u16::from(self.regs.read_flag(Flag::Carry));
-                let rot_data = (a | (carry << 8)) << 1;
-                let carry = ((1 << 8) & rot_data) != 0;
-                let low_bit = u8::from(((1 << 9) & rot_data) != 0);
-                let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
-                self.regs.set8(Reg8::A, new_data);
-                self.regs.set_flag(Flag::Carry, carry);
-            }
-            AluOp::Rotate8LeftThroughCarry(reg) => {
-                let reg_data = u16::from(self.regs.read8(*reg));
-                let carry = u16::from(self.regs.read_flag(Flag::Carry));
-                let rot_data = (reg_data | (carry << 8)) << 1;
-                let carry = ((1 << 8) & rot_data) != 0;
-                let low_bit = u8::from(((1 << 9) & rot_data) != 0);
-                let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
-                self.regs.set8(*reg, new_data);
-                self.regs.set_flag(Flag::Carry, carry);
-            }
-
-            AluOp::Sub(Data::Register8(reg)) => {
-                let x = self.regs.read8(Reg8::A) as i8;
-                let y = self.regs.read8(*reg) as i8;
-                let data = x.wrapping_sub(y);
-                // TODO(slongfield): Update carry flags.
-                self.regs.set_flag(Flag::Zero, data == 0);
-                self.regs.set_flag(Flag::Subtract, true);
-                self.regs.set8(Reg8::A, data as u8);
-            }
-
-            AluOp::Add(Data::Register16(reg)) => {
-                let x = self.regs.read8(Reg8::A) as i8;
-                let y = mem.read(self.regs.read16(*reg) as usize);
-                let data = x.wrapping_add(y as i8);
-                // TODO(slongfield): Update carry flags.
-                self.regs.set_flag(Flag::Zero, data == 0);
-                self.regs.set_flag(Flag::Subtract, true);
-                self.regs.set8(Reg8::A, data as u8);
-            }
-
-            AluOp::Compare(Data::Immediate8(val)) => {
-                let x = self.regs.read8(Reg8::A) as i8;
-                let y = *val as i8;
-                let data = x.wrapping_sub(y);
-                // TODO(slongfield): Update carry flags.
-                self.regs.set_flag(Flag::Zero, data == 0);
-                self.regs.set_flag(Flag::Subtract, true);
-            }
-
-            AluOp::Compare(Data::Register16(reg)) => {
-                let x = self.regs.read8(Reg8::A) as i8;
-                let y = mem.read(self.regs.read16(*reg) as usize);
-                let data = x.wrapping_sub(y as i8);
-                // TODO(slongfield): Update carry flags.
-                self.regs.set_flag(Flag::Zero, data == 0);
-                self.regs.set_flag(Flag::Subtract, true);
-            }
-
-            _ => error!(
-                "Cycle: {} PC: 0x{:04X} Unknown ALU op: {:?}. Regs: {}",
-                self.cycle,
-                self.regs.read16(Reg16::PC),
-                op,
-                self.regs
-            ),
+            Alu8Data::Ignore => 0xFF,
         }
     }
+
+    fn set_alu8_data(&mut self, dest: &Alu8Data, val: u8, mem: &mut Memory) {
+        match dest {
+            Alu8Data::Reg(reg) => self.regs.set8(*reg, val),
+            Alu8Data::Addr(reg16) => {
+                let addr = self.regs.read16(*reg16);
+                mem.write(addr as usize, val);
+            }
+            other => error!("Unexpected alu8 set: {:?}", other),
+        }
+    }
+
+    fn execute_alu8(&mut self, op: &Alu8Op, mem: &mut Memory) {
+        let x = self.get_alu8_data(&op.dest, mem);
+        let y = self.get_alu8_data(&op.y, mem);
+        let (out, zero, subtract, half_carry, carry) = match op.op {
+            Alu8::Add => {
+                let out = (x as i8).wrapping_add(y as i8) as u8;
+                let carry = u16::from(x) + u16::from(y) > 0xFF;
+                // TODO(slongfield): Half Carry
+                (Some(out), Some(out == 0), Some(false), None, Some(carry))
+            }
+            Alu8::AddWithCarry => {
+                let carry_in = u8::from(self.regs.read_flag(Flag::Carry));
+                let out = (x as i8).wrapping_add(y as i8).wrapping_add(carry_in as i8) as u8;
+                let carry = u16::from(x) + u16::from(y) + u16::from(carry_in) > 0xFF;
+                // TODO(slongfield): Half Carry
+                (Some(out), Some(out == 0), Some(false), None, Some(carry))
+            }
+            Alu8::And => {
+                let out = x & y;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(true), Some(false))
+            }
+            Alu8::ClearCarryFlag => (None, None, None, None, Some(false)),
+            Alu8::Compare => {
+                let out = (x as i8).wrapping_sub(y as i8) as u8;
+                let carry = i16::from(x as i8) - i16::from(y as i8) < 0;
+                // TODO(slongfield): Half Carry
+                (None, Some(out == 0), Some(false), None, Some(carry))
+            }
+            Alu8::Complement => {
+                let out = !x;
+                (Some(out), None, Some(true), Some(true), None)
+            }
+            Alu8::DecimalAdjust => (None, None, None, None, None),
+            Alu8::Decrement => {
+                let out = (x as i8).wrapping_sub(1) as u8;
+                // TODO(slongfield): Half Carry
+                (Some(out), Some(out == 0), Some(true), None, None)
+            }
+            Alu8::Increment => {
+                let out = (x as i8).wrapping_add(1) as u8;
+                // TODO(slongfield): Half Carry
+                (Some(out), Some(out == 0), Some(false), None, None)
+            }
+            Alu8::Or => {
+                let out = x | y;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(false))
+            }
+            Alu8::ResetBit => {
+                let out = x & !(1 << y);
+                (Some(out), None, None, None, None)
+            }
+            Alu8::RotateLeft => {
+                let rot_data = u16::from(x) << 1;
+                let carry = ((1 << 8) & rot_data) != 0;
+                let out = (rot_data & 0xFF) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
+            Alu8::RotateLeftCarry => {
+                let carry_in = u16::from(self.regs.read_flag(Flag::Carry));
+                let rot_data = (u16::from(x) | (carry_in << 8)) << 1;
+                let carry = ((1 << 8) & rot_data) != 0;
+                let low_bit = u8::from(((1 << 9) & rot_data) != 0);
+                let out = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
+            Alu8::RotateRight => {
+                let rot_data = u16::from(x) >> 1;
+                let carry = u16::from(x & 1);
+                let out = ((rot_data | (carry << 8)) & 0xFF) as u8;
+                let zero = out == 0;
+                let carry = carry != 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
+            Alu8::RotateRightCarry => (None, None, None, None, None),
+            Alu8::SetBit => {
+                let out = x | (1 << y);
+                (Some(out), None, None, None, None)
+            }
+            Alu8::SetCarryFlag => (None, None, None, None, Some(true)),
+            Alu8::ShiftLeftArithmetic => (None, None, None, None, None),
+            Alu8::ShiftRightArithmetic => (None, None, None, None, None),
+            Alu8::ShiftRightLogical => (None, None, None, None, None),
+            Alu8::Sub => {
+                let out = (x as i8).wrapping_sub(y as i8) as u8;
+                let carry = i16::from(x as i8) - i16::from(y as i8) < 0;
+                let zero = out == 0;
+                // TODO(slongfield): Half Carry
+                (Some(out), Some(zero), Some(false), None, Some(carry))
+            }
+            Alu8::SubWithCarry => {
+                let carry_in = u8::from(self.regs.read_flag(Flag::Carry));
+                let out = (x as i8).wrapping_sub(y as i8).wrapping_sub(carry_in as i8) as u8;
+                let carry = i16::from(x as i8) - i16::from(y as i8) - i16::from(carry_in) < 0;
+                // TODO(slongfield): Half Carry
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), None, Some(carry))
+            }
+            Alu8::Swap => (None, None, None, None, None),
+            Alu8::TestBit => {
+                let zero = x & (1 << y) == 0;
+                (None, Some(zero), Some(false), Some(true), None)
+            }
+            Alu8::Xor => {
+                let out = x ^ y;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(false))
+            }
+            Alu8::Unknown => {
+                error!("Attempted to execute Unknown ALU8Op!");
+                (None, None, None, None, None)
+            }
+        };
+        if let Some(data) = out {
+            self.set_alu8_data(&op.dest, data, mem);
+        }
+        if let Some(zero) = zero {
+            self.regs.set_flag(Flag::Zero, zero);
+        }
+        if let Some(subtract) = subtract {
+            self.regs.set_flag(Flag::Subtract, subtract);
+        }
+        if let Some(half_carry) = half_carry {
+            self.regs.set_flag(Flag::HalfCarry, half_carry);
+        }
+        if let Some(carry) = carry {
+            self.regs.set_flag(Flag::Carry, carry);
+        }
+    }
+
+    /*
+       fn execute_alu_op(&mut self, op: &AluOp, mem: &mut Memory) {
+       match op {
+       AluOp::Xor(Data::Immediate8(data)) => {
+       let a = self.regs.read8(Reg8::A);
+       self.regs.set8(Reg8::A, a ^ data);
+       }
+       AluOp::Xor(Data::Register8(reg)) => {
+       let a = self.regs.read8(Reg8::A);
+       let data = self.regs.read8(*reg);
+       self.regs.set8(Reg8::A, a ^ data);
+       }
+       AluOp::TestBit(reg, bit) => {
+       let data = self.regs.read8(*reg);
+       self.regs
+       .set_flag(Flag::Zero, (data & ((1 << bit) as u8)) == 0);
+       }
+       AluOp::Dec(reg) => {
+       let data = self.regs.read8(*reg).wrapping_sub(1);
+       self.regs.set8(*reg, data);
+       self.regs.set_flag(Flag::Zero, data == 0);
+       }
+       AluOp::WideDec(reg) => {
+       let data = self.regs.read16(*reg).wrapping_sub(1);
+       self.regs.set16(*reg, data);
+       self.regs.set_flag(Flag::Zero, data == 0);
+       }
+       AluOp::AddrDec(addr_reg) => {
+       let addr = self.regs.read16(*addr_reg) as usize;
+       let data = mem.read(addr).wrapping_sub(1);
+       mem.write(addr, data);
+       self.regs.set_flag(Flag::Zero, data == 0);
+       }
+       AluOp::Inc(reg) => {
+       let data = self.regs.read8(*reg);
+       self.regs.set8(*reg, data + 1);
+       }
+       AluOp::WideInc(reg) => {
+       let data = self.regs.read16(*reg);
+       self.regs.set16(*reg, data + 1);
+       }
+
+       AluOp::AddrInc(addr_reg) => {
+       let addr = self.regs.read16(*addr_reg) as usize;
+       let data = mem.read(addr);
+       mem.write(addr, data + 1);
+       }
+
+       AluOp::RotateLeftThroughCarry => {
+       let a = u16::from(self.regs.read8(Reg8::A));
+       let carry = u16::from(self.regs.read_flag(Flag::Carry));
+       let rot_data = (a | (carry << 8)) << 1;
+       let carry = ((1 << 8) & rot_data) != 0;
+       let low_bit = u8::from(((1 << 9) & rot_data) != 0);
+       let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+       self.regs.set8(Reg8::A, new_data);
+       self.regs.set_flag(Flag::Carry, carry);
+       }
+       AluOp::Rotate8LeftThroughCarry(reg) => {
+       let reg_data = u16::from(self.regs.read8(*reg));
+       let carry = u16::from(self.regs.read_flag(Flag::Carry));
+       let rot_data = (reg_data | (carry << 8)) << 1;
+       let carry = ((1 << 8) & rot_data) != 0;
+       let low_bit = u8::from(((1 << 9) & rot_data) != 0);
+       let new_data = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+       self.regs.set8(*reg, new_data);
+       self.regs.set_flag(Flag::Carry, carry);
+       }
+
+       AluOp::Sub(Data::Register8(reg)) => {
+       let x = self.regs.read8(Reg8::A) as i8;
+let y = self.regs.read8(*reg) as i8;
+let data = x.wrapping_sub(y);
+// TODO(slongfield): Update carry flags.
+self.regs.set_flag(Flag::Zero, data == 0);
+self.regs.set_flag(Flag::Subtract, true);
+self.regs.set8(Reg8::A, data as u8);
+}
+
+AluOp::Add(Data::Register16(reg)) => {
+    let x = self.regs.read8(Reg8::A) as i8;
+    let y = mem.read(self.regs.read16(*reg) as usize);
+    let data = x.wrapping_add(y as i8);
+    // TODO(slongfield): Update carry flags.
+    self.regs.set_flag(Flag::Zero, data == 0);
+    self.regs.set_flag(Flag::Subtract, true);
+    self.regs.set8(Reg8::A, data as u8);
+}
+
+AluOp::Compare(Data::Immediate8(val)) => {
+    let x = self.regs.read8(Reg8::A) as i8;
+    let y = *val as i8;
+    let data = x.wrapping_sub(y);
+    // TODO(slongfield): Update carry flags.
+    self.regs.set_flag(Flag::Zero, data == 0);
+    self.regs.set_flag(Flag::Subtract, true);
+}
+
+AluOp::Compare(Data::Register16(reg)) => {
+    let x = self.regs.read8(Reg8::A) as i8;
+    let y = mem.read(self.regs.read16(*reg) as usize);
+    let data = x.wrapping_sub(y as i8);
+    // TODO(slongfield): Update carry flags.
+    self.regs.set_flag(Flag::Zero, data == 0);
+    self.regs.set_flag(Flag::Subtract, true);
+}
+
+_ => error!(
+    "Cycle: {} PC: 0x{:04X} Unknown ALU op: {:?}. Regs: {}",
+    self.cycle,
+    self.regs.read16(Reg16::PC),
+    op,
+    self.regs
+    ),
+  }
+} */
 }
 
 #[cfg(test)]
@@ -303,12 +460,18 @@ mod tests {
 
         let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
 
-        cpu.execute_alu_op(&AluOp::RotateLeftThroughCarry, &mut mem);
+        let op = Alu8Op {
+            op: Alu8::RotateLeftCarry,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Ignore,
+        };
+
+        cpu.execute_alu8(&op, &mut mem);
 
         assert_eq!(cpu.regs.read8(Reg8::A), (0xFF << 1) & 0xFF);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
 
-        cpu.execute_alu_op(&AluOp::RotateLeftThroughCarry, &mut mem);
+        cpu.execute_alu8(&op, &mut mem);
         assert_eq!(cpu.regs.read8(Reg8::A), 0b1111_1101);
     }
 }

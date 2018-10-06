@@ -156,39 +156,38 @@ pub enum Alu8 {
 
 #[derive(Debug)]
 pub struct Alu8Op {
-    op: Alu8,
-    // For all the ALU Ops, X and Dest are the same (and are usualy 'A').
-    dest: Alu8Data,
-    y: Alu8Data,
+    pub op: Alu8,
+    pub dest: Alu8Data,
+    pub y: Alu8Data,
 }
 
 impl Alu8Op {
-    fn Add(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn add(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::Add,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn AddWithCarry(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn add_with_carry(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::AddWithCarry,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn And(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn and(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::And,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn ClearCarryFlag() -> Self {
-        Alu8Op {
+    fn clear_carry_flag() -> Self {
+        Self {
             op: Alu8::ClearCarryFlag,
             // No actual dest.
             dest: Alu8Data::Reg(A),
@@ -196,104 +195,104 @@ impl Alu8Op {
         }
     }
 
-    fn Compare(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn compare(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::Compare,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn Complement() -> Self {
-        Alu8Op {
+    fn complement() -> Self {
+        Self {
             op: Alu8::Complement,
             dest: Alu8Data::Reg(A),
             y: Alu8Data::Ignore,
         }
     }
 
-    fn DecimalAdjust() -> Self {
-        Alu8Op {
+    fn decimal_adjust() -> Self {
+        Self {
             op: Alu8::DecimalAdjust,
             dest: Alu8Data::Reg(A),
             y: Alu8Data::Ignore,
         }
     }
 
-    fn Decrement(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn decrement(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::Decrement,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn Increment(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn increment(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::Increment,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn Or(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn or(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::Or,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn ResetBit(dest: Alu8Data, bit: u8) -> Self {
-        Alu8Op {
+    fn reset_bit(dest: Alu8Data, bit: u8) -> Self {
+        Self {
             op: Alu8::ResetBit,
             dest,
             y: Alu8Data::Imm(bit),
         }
     }
 
-    fn RotateLeft(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn rotate_left(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::RotateLeft,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn RotateLeftCarry(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn rotate_left_carry(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::RotateLeftCarry,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn RotateRight(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn rotate_right(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::RotateRight,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn RotateRightCarry(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn rotate_right_carry(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::RotateRightCarry,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn SetBit(dest: Alu8Data, bit: u8) -> Self {
-        Alu8Op {
+    fn set_bit(dest: Alu8Data, bit: u8) -> Self {
+        Self {
             op: Alu8::SetBit,
             dest,
             y: Alu8Data::Imm(bit),
         }
     }
 
-    fn SetCarryFlag() -> Self {
-        Alu8Op {
+    fn set_carry_flag() -> Self {
+        Self {
             op: Alu8::SetCarryFlag,
             // No actual dest.
             dest: Alu8Data::Reg(A),
@@ -301,72 +300,72 @@ impl Alu8Op {
         }
     }
 
-    fn ShiftLeftArithmetic(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn shift_left_arithmetic(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::ShiftLeftArithmetic,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn ShiftRightArithmetic(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn shift_right_arithmetic(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::ShiftRightArithmetic,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn ShiftRightLogical(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn shift_right_logical(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::ShiftRightLogical,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn Sub(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn sub(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::Sub,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn SubWithCarry(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn sub_with_carry(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::SubWithCarry,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn Xor(y: Alu8Data) -> Self {
-        Alu8Op {
+    fn xor(y: Alu8Data) -> Self {
+        Self {
             op: Alu8::Xor,
             dest: Alu8Data::Reg(A),
             y,
         }
     }
 
-    fn Swap(dest: Alu8Data) -> Self {
-        Alu8Op {
+    fn swap(dest: Alu8Data) -> Self {
+        Self {
             op: Alu8::Swap,
             dest,
             y: Alu8Data::Ignore,
         }
     }
 
-    fn TestBit(dest: Alu8Data, bit: u8) -> Self {
-        Alu8Op {
+    fn test_bit(dest: Alu8Data, bit: u8) -> Self {
+        Self {
             op: Alu8::TestBit,
             dest,
             y: Alu8Data::Imm(bit),
         }
     }
 
-    fn Unknown() -> Self {
-        Alu8Op {
+    fn unknown() -> Self {
+        Self {
             op: Alu8::Unknown,
             dest: Alu8Data::Reg(A),
             y: Alu8Data::Ignore,
@@ -391,7 +390,7 @@ impl fmt::Display for Alu8Op {
             Alu8::RotateLeft => write!(f, "RL {}", self.dest),
             Alu8::RotateLeftCarry => write!(f, "RLC {}", self.dest),
             Alu8::RotateRight => write!(f, "RR {}", self.dest),
-            Alu8::RotateRightCarry => write!(f, "RLC {}", self.dest),
+            Alu8::RotateRightCarry => write!(f, "RRC {}", self.dest),
             Alu8::SetBit => write!(f, "SET {},{}", self.y, self.dest),
             Alu8::SetCarryFlag => write!(f, "SCF"),
             Alu8::ShiftLeftArithmetic => write!(f, "SLA {}", self.dest),
@@ -430,31 +429,39 @@ pub struct Alu16Op {
 }
 
 impl Alu16Op {
-    fn Add(y: Reg16, dest: Reg16) -> Self {
-        Alu16Op {
+    fn add(dest: Reg16, y: Reg16) -> Self {
+        Self {
             op: Alu16::Add,
             dest,
             y: Alu16Data::Reg(y),
         }
     }
 
-    fn Dec(dest: Reg16) -> Self {
-        Alu16Op {
+    fn add_imm(dest: Reg16, y: u8) -> Self {
+        Self {
+            op: Alu16::Add,
+            dest,
+            y: Alu16Data::Imm(y),
+        }
+    }
+
+    fn dec(dest: Reg16) -> Self {
+        Self {
             op: Alu16::Decrement,
             dest,
             y: Alu16Data::Ignore,
         }
     }
-    fn Inc(dest: Reg16) -> Self {
-        Alu16Op {
+    fn inc(dest: Reg16) -> Self {
+        Self {
             op: Alu16::Increment,
             dest,
             y: Alu16Data::Ignore,
         }
     }
 
-    fn Unknown() -> Self {
-        Alu16Op {
+    fn unknown() -> Self {
+        Self {
             op: Alu16::Unknown,
             dest: HL,
             y: Alu16Data::Ignore,
@@ -507,115 +514,115 @@ pub fn decode(rom: &Memory, pc: usize) -> (Op, usize, usize) {
 fn decode_alu8(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
     let imm8 = rom.read(pc + 1);
     let inst = match rom.read(pc) {
-        0x04 => (Alu8Op::Increment(Alu8Data::Reg(B)), 1, 1),
-        0x14 => (Alu8Op::Increment(Alu8Data::Reg(D)), 1, 1),
-        0x24 => (Alu8Op::Increment(Alu8Data::Reg(H)), 1, 1),
-        0x34 => (Alu8Op::Increment(Alu8Data::Addr(HL)), 1, 3),
-        0x0C => (Alu8Op::Increment(Alu8Data::Reg(C)), 1, 1),
-        0x1C => (Alu8Op::Increment(Alu8Data::Reg(E)), 1, 1),
-        0x2C => (Alu8Op::Increment(Alu8Data::Reg(L)), 1, 1),
-        0x3C => (Alu8Op::Increment(Alu8Data::Reg(A)), 1, 1),
+        0x04 => (Alu8Op::increment(Alu8Data::Reg(B)), 1, 1),
+        0x14 => (Alu8Op::increment(Alu8Data::Reg(D)), 1, 1),
+        0x24 => (Alu8Op::increment(Alu8Data::Reg(H)), 1, 1),
+        0x34 => (Alu8Op::increment(Alu8Data::Addr(HL)), 1, 3),
+        0x0C => (Alu8Op::increment(Alu8Data::Reg(C)), 1, 1),
+        0x1C => (Alu8Op::increment(Alu8Data::Reg(E)), 1, 1),
+        0x2C => (Alu8Op::increment(Alu8Data::Reg(L)), 1, 1),
+        0x3C => (Alu8Op::increment(Alu8Data::Reg(A)), 1, 1),
 
-        0x05 => (Alu8Op::Decrement(Alu8Data::Reg(B)), 1, 1),
-        0x15 => (Alu8Op::Decrement(Alu8Data::Reg(D)), 1, 1),
-        0x25 => (Alu8Op::Decrement(Alu8Data::Reg(H)), 1, 1),
-        0x35 => (Alu8Op::Decrement(Alu8Data::Addr(HL)), 1, 3),
-        0x0D => (Alu8Op::Decrement(Alu8Data::Reg(C)), 1, 1),
-        0x1D => (Alu8Op::Decrement(Alu8Data::Reg(E)), 1, 1),
-        0x2D => (Alu8Op::Decrement(Alu8Data::Reg(L)), 1, 1),
-        0x3D => (Alu8Op::Decrement(Alu8Data::Reg(A)), 1, 1),
+        0x05 => (Alu8Op::decrement(Alu8Data::Reg(B)), 1, 1),
+        0x15 => (Alu8Op::decrement(Alu8Data::Reg(D)), 1, 1),
+        0x25 => (Alu8Op::decrement(Alu8Data::Reg(H)), 1, 1),
+        0x35 => (Alu8Op::decrement(Alu8Data::Addr(HL)), 1, 3),
+        0x0D => (Alu8Op::decrement(Alu8Data::Reg(C)), 1, 1),
+        0x1D => (Alu8Op::decrement(Alu8Data::Reg(E)), 1, 1),
+        0x2D => (Alu8Op::decrement(Alu8Data::Reg(L)), 1, 1),
+        0x3D => (Alu8Op::decrement(Alu8Data::Reg(A)), 1, 1),
 
-        0x07 => (Alu8Op::RotateLeft(Alu8Data::Reg(A)), 1, 1),
-        0x0F => (Alu8Op::RotateRight(Alu8Data::Reg(A)), 1, 1),
-        0x17 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(A)), 1, 1),
-        0x1F => (Alu8Op::RotateRightCarry(Alu8Data::Reg(A)), 1, 1),
+        0x07 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 1, 1),
+        0x0F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 1, 1),
+        0x17 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 1, 1),
+        0x1F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 1, 1),
 
-        0x27 => (Alu8Op::DecimalAdjust(), 1, 1),
-        0x2F => (Alu8Op::Complement(), 1, 1),
+        0x27 => (Alu8Op::decimal_adjust(), 1, 1),
+        0x2F => (Alu8Op::complement(), 1, 1),
 
-        0x37 => (Alu8Op::SetCarryFlag(), 1, 1),
-        0x3F => (Alu8Op::ClearCarryFlag(), 1, 1),
+        0x37 => (Alu8Op::set_carry_flag(), 1, 1),
+        0x3F => (Alu8Op::clear_carry_flag(), 1, 1),
 
-        0x80 => (Alu8Op::Add(Alu8Data::Reg(B)), 1, 1),
-        0x81 => (Alu8Op::Add(Alu8Data::Reg(C)), 1, 1),
-        0x82 => (Alu8Op::Add(Alu8Data::Reg(D)), 1, 1),
-        0x83 => (Alu8Op::Add(Alu8Data::Reg(E)), 1, 1),
-        0x84 => (Alu8Op::Add(Alu8Data::Reg(H)), 1, 1),
-        0x85 => (Alu8Op::Add(Alu8Data::Reg(L)), 1, 1),
-        0x86 => (Alu8Op::Add(Alu8Data::Addr(HL)), 1, 1),
-        0x87 => (Alu8Op::Add(Alu8Data::Reg(A)), 1, 2),
-        0x88 => (Alu8Op::AddWithCarry(Alu8Data::Reg(B)), 1, 1),
-        0x89 => (Alu8Op::AddWithCarry(Alu8Data::Reg(C)), 1, 1),
-        0x8A => (Alu8Op::AddWithCarry(Alu8Data::Reg(D)), 1, 1),
-        0x8B => (Alu8Op::AddWithCarry(Alu8Data::Reg(E)), 1, 1),
-        0x8C => (Alu8Op::AddWithCarry(Alu8Data::Reg(H)), 1, 1),
-        0x8D => (Alu8Op::AddWithCarry(Alu8Data::Reg(L)), 1, 1),
-        0x8E => (Alu8Op::AddWithCarry(Alu8Data::Addr(HL)), 1, 2),
-        0x8F => (Alu8Op::AddWithCarry(Alu8Data::Reg(A)), 1, 1),
+        0x80 => (Alu8Op::add(Alu8Data::Reg(B)), 1, 1),
+        0x81 => (Alu8Op::add(Alu8Data::Reg(C)), 1, 1),
+        0x82 => (Alu8Op::add(Alu8Data::Reg(D)), 1, 1),
+        0x83 => (Alu8Op::add(Alu8Data::Reg(E)), 1, 1),
+        0x84 => (Alu8Op::add(Alu8Data::Reg(H)), 1, 1),
+        0x85 => (Alu8Op::add(Alu8Data::Reg(L)), 1, 1),
+        0x86 => (Alu8Op::add(Alu8Data::Addr(HL)), 1, 1),
+        0x87 => (Alu8Op::add(Alu8Data::Reg(A)), 1, 2),
+        0x88 => (Alu8Op::add_with_carry(Alu8Data::Reg(B)), 1, 1),
+        0x89 => (Alu8Op::add_with_carry(Alu8Data::Reg(C)), 1, 1),
+        0x8A => (Alu8Op::add_with_carry(Alu8Data::Reg(D)), 1, 1),
+        0x8B => (Alu8Op::add_with_carry(Alu8Data::Reg(E)), 1, 1),
+        0x8C => (Alu8Op::add_with_carry(Alu8Data::Reg(H)), 1, 1),
+        0x8D => (Alu8Op::add_with_carry(Alu8Data::Reg(L)), 1, 1),
+        0x8E => (Alu8Op::add_with_carry(Alu8Data::Addr(HL)), 1, 2),
+        0x8F => (Alu8Op::add_with_carry(Alu8Data::Reg(A)), 1, 1),
 
-        0x90 => (Alu8Op::Sub(Alu8Data::Reg(B)), 1, 1),
-        0x91 => (Alu8Op::Sub(Alu8Data::Reg(C)), 1, 1),
-        0x92 => (Alu8Op::Sub(Alu8Data::Reg(D)), 1, 1),
-        0x93 => (Alu8Op::Sub(Alu8Data::Reg(E)), 1, 1),
-        0x94 => (Alu8Op::Sub(Alu8Data::Reg(H)), 1, 1),
-        0x95 => (Alu8Op::Sub(Alu8Data::Reg(L)), 1, 1),
-        0x96 => (Alu8Op::Sub(Alu8Data::Addr(HL)), 1, 2),
-        0x97 => (Alu8Op::Sub(Alu8Data::Reg(A)), 1, 1),
-        0x98 => (Alu8Op::SubWithCarry(Alu8Data::Reg(B)), 1, 1),
-        0x99 => (Alu8Op::SubWithCarry(Alu8Data::Reg(C)), 1, 1),
-        0x9A => (Alu8Op::SubWithCarry(Alu8Data::Reg(D)), 1, 1),
-        0x9B => (Alu8Op::SubWithCarry(Alu8Data::Reg(E)), 1, 1),
-        0x9C => (Alu8Op::SubWithCarry(Alu8Data::Reg(H)), 1, 1),
-        0x9D => (Alu8Op::SubWithCarry(Alu8Data::Reg(L)), 1, 1),
-        0x9E => (Alu8Op::SubWithCarry(Alu8Data::Addr(HL)), 1, 2),
-        0x9F => (Alu8Op::SubWithCarry(Alu8Data::Reg(A)), 1, 1),
+        0x90 => (Alu8Op::sub(Alu8Data::Reg(B)), 1, 1),
+        0x91 => (Alu8Op::sub(Alu8Data::Reg(C)), 1, 1),
+        0x92 => (Alu8Op::sub(Alu8Data::Reg(D)), 1, 1),
+        0x93 => (Alu8Op::sub(Alu8Data::Reg(E)), 1, 1),
+        0x94 => (Alu8Op::sub(Alu8Data::Reg(H)), 1, 1),
+        0x95 => (Alu8Op::sub(Alu8Data::Reg(L)), 1, 1),
+        0x96 => (Alu8Op::sub(Alu8Data::Addr(HL)), 1, 2),
+        0x97 => (Alu8Op::sub(Alu8Data::Reg(A)), 1, 1),
+        0x98 => (Alu8Op::sub_with_carry(Alu8Data::Reg(B)), 1, 1),
+        0x99 => (Alu8Op::sub_with_carry(Alu8Data::Reg(C)), 1, 1),
+        0x9A => (Alu8Op::sub_with_carry(Alu8Data::Reg(D)), 1, 1),
+        0x9B => (Alu8Op::sub_with_carry(Alu8Data::Reg(E)), 1, 1),
+        0x9C => (Alu8Op::sub_with_carry(Alu8Data::Reg(H)), 1, 1),
+        0x9D => (Alu8Op::sub_with_carry(Alu8Data::Reg(L)), 1, 1),
+        0x9E => (Alu8Op::sub_with_carry(Alu8Data::Addr(HL)), 1, 2),
+        0x9F => (Alu8Op::sub_with_carry(Alu8Data::Reg(A)), 1, 1),
 
-        0xA0 => (Alu8Op::And(Alu8Data::Reg(B)), 1, 1),
-        0xA1 => (Alu8Op::And(Alu8Data::Reg(C)), 1, 1),
-        0xA2 => (Alu8Op::And(Alu8Data::Reg(D)), 1, 1),
-        0xA3 => (Alu8Op::And(Alu8Data::Reg(E)), 1, 1),
-        0xA4 => (Alu8Op::And(Alu8Data::Reg(H)), 1, 1),
-        0xA5 => (Alu8Op::And(Alu8Data::Reg(L)), 1, 1),
-        0xA6 => (Alu8Op::And(Alu8Data::Addr(HL)), 1, 2),
-        0xA7 => (Alu8Op::And(Alu8Data::Reg(A)), 1, 1),
+        0xA0 => (Alu8Op::and(Alu8Data::Reg(B)), 1, 1),
+        0xA1 => (Alu8Op::and(Alu8Data::Reg(C)), 1, 1),
+        0xA2 => (Alu8Op::and(Alu8Data::Reg(D)), 1, 1),
+        0xA3 => (Alu8Op::and(Alu8Data::Reg(E)), 1, 1),
+        0xA4 => (Alu8Op::and(Alu8Data::Reg(H)), 1, 1),
+        0xA5 => (Alu8Op::and(Alu8Data::Reg(L)), 1, 1),
+        0xA6 => (Alu8Op::and(Alu8Data::Addr(HL)), 1, 2),
+        0xA7 => (Alu8Op::and(Alu8Data::Reg(A)), 1, 1),
 
-        0xA8 => (Alu8Op::Xor(Alu8Data::Reg(B)), 1, 1),
-        0xA9 => (Alu8Op::Xor(Alu8Data::Reg(C)), 1, 1),
-        0xAA => (Alu8Op::Xor(Alu8Data::Reg(D)), 1, 1),
-        0xAB => (Alu8Op::Xor(Alu8Data::Reg(E)), 1, 1),
-        0xAC => (Alu8Op::Xor(Alu8Data::Reg(H)), 1, 1),
-        0xAD => (Alu8Op::Xor(Alu8Data::Reg(L)), 1, 1),
-        0xAE => (Alu8Op::Xor(Alu8Data::Addr(HL)), 1, 2),
-        0xAF => (Alu8Op::Xor(Alu8Data::Reg(A)), 1, 1),
+        0xA8 => (Alu8Op::xor(Alu8Data::Reg(B)), 1, 1),
+        0xA9 => (Alu8Op::xor(Alu8Data::Reg(C)), 1, 1),
+        0xAA => (Alu8Op::xor(Alu8Data::Reg(D)), 1, 1),
+        0xAB => (Alu8Op::xor(Alu8Data::Reg(E)), 1, 1),
+        0xAC => (Alu8Op::xor(Alu8Data::Reg(H)), 1, 1),
+        0xAD => (Alu8Op::xor(Alu8Data::Reg(L)), 1, 1),
+        0xAE => (Alu8Op::xor(Alu8Data::Addr(HL)), 1, 2),
+        0xAF => (Alu8Op::xor(Alu8Data::Reg(A)), 1, 1),
 
-        0xB0 => (Alu8Op::Or(Alu8Data::Reg(B)), 1, 1),
-        0xB1 => (Alu8Op::Or(Alu8Data::Reg(C)), 1, 1),
-        0xB2 => (Alu8Op::Or(Alu8Data::Reg(D)), 1, 1),
-        0xB3 => (Alu8Op::Or(Alu8Data::Reg(E)), 1, 1),
-        0xB4 => (Alu8Op::Or(Alu8Data::Reg(H)), 1, 1),
-        0xB5 => (Alu8Op::Or(Alu8Data::Reg(L)), 1, 1),
-        0xB6 => (Alu8Op::Or(Alu8Data::Addr(HL)), 1, 2),
-        0xB7 => (Alu8Op::Or(Alu8Data::Reg(A)), 1, 1),
+        0xB0 => (Alu8Op::or(Alu8Data::Reg(B)), 1, 1),
+        0xB1 => (Alu8Op::or(Alu8Data::Reg(C)), 1, 1),
+        0xB2 => (Alu8Op::or(Alu8Data::Reg(D)), 1, 1),
+        0xB3 => (Alu8Op::or(Alu8Data::Reg(E)), 1, 1),
+        0xB4 => (Alu8Op::or(Alu8Data::Reg(H)), 1, 1),
+        0xB5 => (Alu8Op::or(Alu8Data::Reg(L)), 1, 1),
+        0xB6 => (Alu8Op::or(Alu8Data::Addr(HL)), 1, 2),
+        0xB7 => (Alu8Op::or(Alu8Data::Reg(A)), 1, 1),
 
-        0xB8 => (Alu8Op::Compare(Alu8Data::Reg(B)), 1, 1),
-        0xB9 => (Alu8Op::Compare(Alu8Data::Reg(C)), 1, 1),
-        0xBA => (Alu8Op::Compare(Alu8Data::Reg(D)), 1, 1),
-        0xBB => (Alu8Op::Compare(Alu8Data::Reg(E)), 1, 1),
-        0xBC => (Alu8Op::Compare(Alu8Data::Reg(H)), 1, 1),
-        0xBD => (Alu8Op::Compare(Alu8Data::Reg(L)), 1, 1),
-        0xBE => (Alu8Op::Compare(Alu8Data::Addr(HL)), 1, 2),
-        0xBF => (Alu8Op::Compare(Alu8Data::Reg(A)), 1, 1),
+        0xB8 => (Alu8Op::compare(Alu8Data::Reg(B)), 1, 1),
+        0xB9 => (Alu8Op::compare(Alu8Data::Reg(C)), 1, 1),
+        0xBA => (Alu8Op::compare(Alu8Data::Reg(D)), 1, 1),
+        0xBB => (Alu8Op::compare(Alu8Data::Reg(E)), 1, 1),
+        0xBC => (Alu8Op::compare(Alu8Data::Reg(H)), 1, 1),
+        0xBD => (Alu8Op::compare(Alu8Data::Reg(L)), 1, 1),
+        0xBE => (Alu8Op::compare(Alu8Data::Addr(HL)), 1, 2),
+        0xBF => (Alu8Op::compare(Alu8Data::Reg(A)), 1, 1),
 
-        0xC6 => (Alu8Op::Add(Alu8Data::Imm(imm8)), 2, 1),
-        0xD6 => (Alu8Op::Sub(Alu8Data::Imm(imm8)), 2, 1),
-        0xE6 => (Alu8Op::And(Alu8Data::Imm(imm8)), 2, 1),
-        0xF6 => (Alu8Op::Or(Alu8Data::Imm(imm8)), 2, 1),
-        0xCE => (Alu8Op::AddWithCarry(Alu8Data::Imm(imm8)), 2, 1),
-        0xDE => (Alu8Op::SubWithCarry(Alu8Data::Imm(imm8)), 2, 1),
-        0xEE => (Alu8Op::Xor(Alu8Data::Imm(imm8)), 2, 1),
-        0xFE => (Alu8Op::Compare(Alu8Data::Imm(imm8)), 2, 1),
+        0xC6 => (Alu8Op::add(Alu8Data::Imm(imm8)), 2, 1),
+        0xD6 => (Alu8Op::sub(Alu8Data::Imm(imm8)), 2, 1),
+        0xE6 => (Alu8Op::and(Alu8Data::Imm(imm8)), 2, 1),
+        0xF6 => (Alu8Op::or(Alu8Data::Imm(imm8)), 2, 1),
+        0xCE => (Alu8Op::add_with_carry(Alu8Data::Imm(imm8)), 2, 1),
+        0xDE => (Alu8Op::sub_with_carry(Alu8Data::Imm(imm8)), 2, 1),
+        0xEE => (Alu8Op::xor(Alu8Data::Imm(imm8)), 2, 1),
+        0xFE => (Alu8Op::compare(Alu8Data::Imm(imm8)), 2, 1),
 
-        _ => (Alu8Op::Unknown(), 0, 0),
+        _ => (Alu8Op::unknown(), 0, 0),
     };
     match inst {
         (
@@ -631,24 +638,25 @@ fn decode_alu8(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 
 ///! Decode ALU operations.
 fn decode_alu16(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
-    let imm8 = rom.read(pc + 1);
     let inst = match rom.read(pc) {
-        0x03 => (Alu16Op::Inc(BC), 1, 1),
-        0x13 => (Alu16Op::Inc(DE), 1, 1),
-        0x23 => (Alu16Op::Inc(HL), 1, 1),
-        0x33 => (Alu16Op::Inc(SP), 1, 1),
+        0x03 => (Alu16Op::inc(BC), 1, 1),
+        0x13 => (Alu16Op::inc(DE), 1, 1),
+        0x23 => (Alu16Op::inc(HL), 1, 1),
+        0x33 => (Alu16Op::inc(SP), 1, 1),
 
-        0x09 => (Alu16Op::Add(HL, BC), 1, 2),
-        0x19 => (Alu16Op::Add(HL, DE), 1, 2),
-        0x29 => (Alu16Op::Add(HL, HL), 1, 2),
-        0x39 => (Alu16Op::Add(HL, SP), 1, 2),
+        0x09 => (Alu16Op::add(HL, BC), 1, 2),
+        0x19 => (Alu16Op::add(HL, DE), 1, 2),
+        0x29 => (Alu16Op::add(HL, HL), 1, 2),
+        0x39 => (Alu16Op::add(HL, SP), 1, 2),
 
-        0x0B => (Alu16Op::Dec(BC), 1, 2),
-        0x1B => (Alu16Op::Dec(DE), 1, 2),
-        0x2B => (Alu16Op::Dec(HL), 1, 2),
-        0x3B => (Alu16Op::Dec(SP), 1, 2),
+        0x0B => (Alu16Op::dec(BC), 1, 2),
+        0x1B => (Alu16Op::dec(DE), 1, 2),
+        0x2B => (Alu16Op::dec(HL), 1, 2),
+        0x3B => (Alu16Op::dec(SP), 1, 2),
 
-        _ => (Alu16Op::Unknown(), 0, 0),
+        0xE8 => (Alu16Op::add_imm(SP, rom.read(pc + 1)), 2, 4),
+
+        _ => (Alu16Op::unknown(), 0, 0),
     };
     match inst {
         (
@@ -841,295 +849,295 @@ fn decode_jump(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 ///! Decode prefix 0xCB extended ops
 fn decode_extended(opcode: u8) -> (Op, usize, usize) {
     let (alu_op, time) = match opcode {
-        0x00 => (Alu8Op::RotateLeft(Alu8Data::Reg(B)), 2),
-        0x01 => (Alu8Op::RotateLeft(Alu8Data::Reg(C)), 2),
-        0x02 => (Alu8Op::RotateLeft(Alu8Data::Reg(D)), 2),
-        0x03 => (Alu8Op::RotateLeft(Alu8Data::Reg(E)), 2),
-        0x04 => (Alu8Op::RotateLeft(Alu8Data::Reg(H)), 2),
-        0x05 => (Alu8Op::RotateLeft(Alu8Data::Reg(L)), 2),
-        0x06 => (Alu8Op::RotateLeft(Alu8Data::Addr(HL)), 4),
-        0x07 => (Alu8Op::RotateLeft(Alu8Data::Reg(A)), 2),
+        0x00 => (Alu8Op::rotate_left(Alu8Data::Reg(B)), 2),
+        0x01 => (Alu8Op::rotate_left(Alu8Data::Reg(C)), 2),
+        0x02 => (Alu8Op::rotate_left(Alu8Data::Reg(D)), 2),
+        0x03 => (Alu8Op::rotate_left(Alu8Data::Reg(E)), 2),
+        0x04 => (Alu8Op::rotate_left(Alu8Data::Reg(H)), 2),
+        0x05 => (Alu8Op::rotate_left(Alu8Data::Reg(L)), 2),
+        0x06 => (Alu8Op::rotate_left(Alu8Data::Addr(HL)), 4),
+        0x07 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 2),
 
-        0x08 => (Alu8Op::RotateRight(Alu8Data::Reg(B)), 2),
-        0x09 => (Alu8Op::RotateRight(Alu8Data::Reg(C)), 2),
-        0x0A => (Alu8Op::RotateRight(Alu8Data::Reg(D)), 2),
-        0x0B => (Alu8Op::RotateRight(Alu8Data::Reg(E)), 2),
-        0x0C => (Alu8Op::RotateRight(Alu8Data::Reg(H)), 2),
-        0x0D => (Alu8Op::RotateRight(Alu8Data::Reg(L)), 2),
-        0x0E => (Alu8Op::RotateRight(Alu8Data::Addr(HL)), 4),
-        0x0F => (Alu8Op::RotateRight(Alu8Data::Reg(A)), 2),
+        0x08 => (Alu8Op::rotate_right(Alu8Data::Reg(B)), 2),
+        0x09 => (Alu8Op::rotate_right(Alu8Data::Reg(C)), 2),
+        0x0A => (Alu8Op::rotate_right(Alu8Data::Reg(D)), 2),
+        0x0B => (Alu8Op::rotate_right(Alu8Data::Reg(E)), 2),
+        0x0C => (Alu8Op::rotate_right(Alu8Data::Reg(H)), 2),
+        0x0D => (Alu8Op::rotate_right(Alu8Data::Reg(L)), 2),
+        0x0E => (Alu8Op::rotate_right(Alu8Data::Addr(HL)), 4),
+        0x0F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 2),
 
-        0x10 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(B)), 2),
-        0x11 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(C)), 2),
-        0x12 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(D)), 2),
-        0x13 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(E)), 2),
-        0x14 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(H)), 2),
-        0x15 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(L)), 2),
-        0x16 => (Alu8Op::RotateLeftCarry(Alu8Data::Addr(HL)), 4),
-        0x17 => (Alu8Op::RotateLeftCarry(Alu8Data::Reg(A)), 2),
+        0x10 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(B)), 2),
+        0x11 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(C)), 2),
+        0x12 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(D)), 2),
+        0x13 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(E)), 2),
+        0x14 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(H)), 2),
+        0x15 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(L)), 2),
+        0x16 => (Alu8Op::rotate_left_carry(Alu8Data::Addr(HL)), 4),
+        0x17 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 2),
 
-        0x18 => (Alu8Op::RotateRightCarry(Alu8Data::Reg(B)), 2),
-        0x19 => (Alu8Op::RotateRightCarry(Alu8Data::Reg(C)), 2),
-        0x1A => (Alu8Op::RotateRightCarry(Alu8Data::Reg(D)), 2),
-        0x1B => (Alu8Op::RotateRightCarry(Alu8Data::Reg(E)), 2),
-        0x1C => (Alu8Op::RotateRightCarry(Alu8Data::Reg(H)), 2),
-        0x1D => (Alu8Op::RotateRightCarry(Alu8Data::Reg(L)), 2),
-        0x1E => (Alu8Op::RotateRightCarry(Alu8Data::Addr(HL)), 4),
-        0x1F => (Alu8Op::RotateRightCarry(Alu8Data::Reg(A)), 2),
+        0x18 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(B)), 2),
+        0x19 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(C)), 2),
+        0x1A => (Alu8Op::rotate_right_carry(Alu8Data::Reg(D)), 2),
+        0x1B => (Alu8Op::rotate_right_carry(Alu8Data::Reg(E)), 2),
+        0x1C => (Alu8Op::rotate_right_carry(Alu8Data::Reg(H)), 2),
+        0x1D => (Alu8Op::rotate_right_carry(Alu8Data::Reg(L)), 2),
+        0x1E => (Alu8Op::rotate_right_carry(Alu8Data::Addr(HL)), 4),
+        0x1F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 2),
 
-        0x20 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(B)), 2),
-        0x21 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(C)), 2),
-        0x22 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(D)), 2),
-        0x23 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(E)), 2),
-        0x24 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(H)), 2),
-        0x25 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(L)), 2),
-        0x26 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Addr(HL)), 4),
-        0x27 => (Alu8Op::ShiftLeftArithmetic(Alu8Data::Reg(A)), 2),
+        0x20 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(B)), 2),
+        0x21 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(C)), 2),
+        0x22 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(D)), 2),
+        0x23 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(E)), 2),
+        0x24 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(H)), 2),
+        0x25 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(L)), 2),
+        0x26 => (Alu8Op::shift_left_arithmetic(Alu8Data::Addr(HL)), 4),
+        0x27 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(A)), 2),
 
-        0x28 => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(B)), 2),
-        0x29 => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(C)), 2),
-        0x2A => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(D)), 2),
-        0x2B => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(E)), 2),
-        0x2C => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(H)), 2),
-        0x2D => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(L)), 2),
-        0x2E => (Alu8Op::ShiftRightArithmetic(Alu8Data::Addr(HL)), 4),
-        0x2F => (Alu8Op::ShiftRightArithmetic(Alu8Data::Reg(A)), 2),
+        0x28 => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(B)), 2),
+        0x29 => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(C)), 2),
+        0x2A => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(D)), 2),
+        0x2B => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(E)), 2),
+        0x2C => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(H)), 2),
+        0x2D => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(L)), 2),
+        0x2E => (Alu8Op::shift_right_arithmetic(Alu8Data::Addr(HL)), 4),
+        0x2F => (Alu8Op::shift_right_arithmetic(Alu8Data::Reg(A)), 2),
 
-        0x30 => (Alu8Op::Swap(Alu8Data::Reg(B)), 2),
-        0x31 => (Alu8Op::Swap(Alu8Data::Reg(C)), 2),
-        0x32 => (Alu8Op::Swap(Alu8Data::Reg(D)), 2),
-        0x33 => (Alu8Op::Swap(Alu8Data::Reg(E)), 2),
-        0x34 => (Alu8Op::Swap(Alu8Data::Reg(H)), 2),
-        0x35 => (Alu8Op::Swap(Alu8Data::Reg(L)), 2),
-        0x36 => (Alu8Op::Swap(Alu8Data::Addr(HL)), 4),
-        0x37 => (Alu8Op::Swap(Alu8Data::Reg(A)), 2),
+        0x30 => (Alu8Op::swap(Alu8Data::Reg(B)), 2),
+        0x31 => (Alu8Op::swap(Alu8Data::Reg(C)), 2),
+        0x32 => (Alu8Op::swap(Alu8Data::Reg(D)), 2),
+        0x33 => (Alu8Op::swap(Alu8Data::Reg(E)), 2),
+        0x34 => (Alu8Op::swap(Alu8Data::Reg(H)), 2),
+        0x35 => (Alu8Op::swap(Alu8Data::Reg(L)), 2),
+        0x36 => (Alu8Op::swap(Alu8Data::Addr(HL)), 4),
+        0x37 => (Alu8Op::swap(Alu8Data::Reg(A)), 2),
 
-        0x38 => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(B)), 2),
-        0x39 => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(C)), 2),
-        0x3A => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(D)), 2),
-        0x3B => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(E)), 2),
-        0x3C => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(H)), 2),
-        0x3D => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(L)), 2),
-        0x3E => (Alu8Op::ShiftRightLogical(Alu8Data::Addr(HL)), 4),
-        0x3F => (Alu8Op::ShiftRightLogical(Alu8Data::Reg(A)), 2),
+        0x38 => (Alu8Op::shift_right_logical(Alu8Data::Reg(B)), 2),
+        0x39 => (Alu8Op::shift_right_logical(Alu8Data::Reg(C)), 2),
+        0x3A => (Alu8Op::shift_right_logical(Alu8Data::Reg(D)), 2),
+        0x3B => (Alu8Op::shift_right_logical(Alu8Data::Reg(E)), 2),
+        0x3C => (Alu8Op::shift_right_logical(Alu8Data::Reg(H)), 2),
+        0x3D => (Alu8Op::shift_right_logical(Alu8Data::Reg(L)), 2),
+        0x3E => (Alu8Op::shift_right_logical(Alu8Data::Addr(HL)), 4),
+        0x3F => (Alu8Op::shift_right_logical(Alu8Data::Reg(A)), 2),
 
-        0x40 => (Alu8Op::TestBit(Alu8Data::Reg(B), 0), 2),
-        0x41 => (Alu8Op::TestBit(Alu8Data::Reg(C), 0), 2),
-        0x42 => (Alu8Op::TestBit(Alu8Data::Reg(D), 0), 2),
-        0x43 => (Alu8Op::TestBit(Alu8Data::Reg(E), 0), 2),
-        0x44 => (Alu8Op::TestBit(Alu8Data::Reg(H), 0), 2),
-        0x45 => (Alu8Op::TestBit(Alu8Data::Reg(L), 0), 2),
-        0x46 => (Alu8Op::TestBit(Alu8Data::Addr(HL), 0), 4),
-        0x47 => (Alu8Op::TestBit(Alu8Data::Reg(A), 0), 2),
+        0x40 => (Alu8Op::test_bit(Alu8Data::Reg(B), 0), 2),
+        0x41 => (Alu8Op::test_bit(Alu8Data::Reg(C), 0), 2),
+        0x42 => (Alu8Op::test_bit(Alu8Data::Reg(D), 0), 2),
+        0x43 => (Alu8Op::test_bit(Alu8Data::Reg(E), 0), 2),
+        0x44 => (Alu8Op::test_bit(Alu8Data::Reg(H), 0), 2),
+        0x45 => (Alu8Op::test_bit(Alu8Data::Reg(L), 0), 2),
+        0x46 => (Alu8Op::test_bit(Alu8Data::Addr(HL), 0), 4),
+        0x47 => (Alu8Op::test_bit(Alu8Data::Reg(A), 0), 2),
 
-        0x48 => (Alu8Op::TestBit(Alu8Data::Reg(B), 1), 2),
-        0x49 => (Alu8Op::TestBit(Alu8Data::Reg(C), 1), 2),
-        0x4A => (Alu8Op::TestBit(Alu8Data::Reg(D), 1), 2),
-        0x4B => (Alu8Op::TestBit(Alu8Data::Reg(E), 1), 2),
-        0x4C => (Alu8Op::TestBit(Alu8Data::Reg(H), 1), 2),
-        0x4D => (Alu8Op::TestBit(Alu8Data::Reg(L), 1), 2),
-        0x4E => (Alu8Op::TestBit(Alu8Data::Addr(HL), 1), 4),
-        0x4F => (Alu8Op::TestBit(Alu8Data::Reg(A), 1), 2),
+        0x48 => (Alu8Op::test_bit(Alu8Data::Reg(B), 1), 2),
+        0x49 => (Alu8Op::test_bit(Alu8Data::Reg(C), 1), 2),
+        0x4A => (Alu8Op::test_bit(Alu8Data::Reg(D), 1), 2),
+        0x4B => (Alu8Op::test_bit(Alu8Data::Reg(E), 1), 2),
+        0x4C => (Alu8Op::test_bit(Alu8Data::Reg(H), 1), 2),
+        0x4D => (Alu8Op::test_bit(Alu8Data::Reg(L), 1), 2),
+        0x4E => (Alu8Op::test_bit(Alu8Data::Addr(HL), 1), 4),
+        0x4F => (Alu8Op::test_bit(Alu8Data::Reg(A), 1), 2),
 
-        0x50 => (Alu8Op::TestBit(Alu8Data::Reg(B), 2), 2),
-        0x51 => (Alu8Op::TestBit(Alu8Data::Reg(C), 2), 2),
-        0x52 => (Alu8Op::TestBit(Alu8Data::Reg(D), 2), 2),
-        0x53 => (Alu8Op::TestBit(Alu8Data::Reg(E), 2), 2),
-        0x54 => (Alu8Op::TestBit(Alu8Data::Reg(H), 2), 2),
-        0x55 => (Alu8Op::TestBit(Alu8Data::Reg(L), 2), 2),
-        0x56 => (Alu8Op::TestBit(Alu8Data::Addr(HL), 2), 4),
-        0x57 => (Alu8Op::TestBit(Alu8Data::Reg(A), 2), 2),
+        0x50 => (Alu8Op::test_bit(Alu8Data::Reg(B), 2), 2),
+        0x51 => (Alu8Op::test_bit(Alu8Data::Reg(C), 2), 2),
+        0x52 => (Alu8Op::test_bit(Alu8Data::Reg(D), 2), 2),
+        0x53 => (Alu8Op::test_bit(Alu8Data::Reg(E), 2), 2),
+        0x54 => (Alu8Op::test_bit(Alu8Data::Reg(H), 2), 2),
+        0x55 => (Alu8Op::test_bit(Alu8Data::Reg(L), 2), 2),
+        0x56 => (Alu8Op::test_bit(Alu8Data::Addr(HL), 2), 4),
+        0x57 => (Alu8Op::test_bit(Alu8Data::Reg(A), 2), 2),
 
-        0x58 => (Alu8Op::TestBit(Alu8Data::Reg(B), 3), 2),
-        0x59 => (Alu8Op::TestBit(Alu8Data::Reg(C), 3), 2),
-        0x5A => (Alu8Op::TestBit(Alu8Data::Reg(D), 3), 2),
-        0x5B => (Alu8Op::TestBit(Alu8Data::Reg(E), 3), 2),
-        0x5C => (Alu8Op::TestBit(Alu8Data::Reg(H), 3), 2),
-        0x5D => (Alu8Op::TestBit(Alu8Data::Reg(L), 3), 2),
-        0x5E => (Alu8Op::TestBit(Alu8Data::Addr(HL), 3), 4),
-        0x5F => (Alu8Op::TestBit(Alu8Data::Reg(A), 3), 2),
+        0x58 => (Alu8Op::test_bit(Alu8Data::Reg(B), 3), 2),
+        0x59 => (Alu8Op::test_bit(Alu8Data::Reg(C), 3), 2),
+        0x5A => (Alu8Op::test_bit(Alu8Data::Reg(D), 3), 2),
+        0x5B => (Alu8Op::test_bit(Alu8Data::Reg(E), 3), 2),
+        0x5C => (Alu8Op::test_bit(Alu8Data::Reg(H), 3), 2),
+        0x5D => (Alu8Op::test_bit(Alu8Data::Reg(L), 3), 2),
+        0x5E => (Alu8Op::test_bit(Alu8Data::Addr(HL), 3), 4),
+        0x5F => (Alu8Op::test_bit(Alu8Data::Reg(A), 3), 2),
 
-        0x60 => (Alu8Op::TestBit(Alu8Data::Reg(B), 4), 2),
-        0x61 => (Alu8Op::TestBit(Alu8Data::Reg(C), 4), 2),
-        0x62 => (Alu8Op::TestBit(Alu8Data::Reg(D), 4), 2),
-        0x63 => (Alu8Op::TestBit(Alu8Data::Reg(E), 4), 2),
-        0x64 => (Alu8Op::TestBit(Alu8Data::Reg(H), 4), 2),
-        0x65 => (Alu8Op::TestBit(Alu8Data::Reg(L), 4), 2),
-        0x66 => (Alu8Op::TestBit(Alu8Data::Addr(HL), 4), 4),
-        0x67 => (Alu8Op::TestBit(Alu8Data::Reg(A), 4), 2),
+        0x60 => (Alu8Op::test_bit(Alu8Data::Reg(B), 4), 2),
+        0x61 => (Alu8Op::test_bit(Alu8Data::Reg(C), 4), 2),
+        0x62 => (Alu8Op::test_bit(Alu8Data::Reg(D), 4), 2),
+        0x63 => (Alu8Op::test_bit(Alu8Data::Reg(E), 4), 2),
+        0x64 => (Alu8Op::test_bit(Alu8Data::Reg(H), 4), 2),
+        0x65 => (Alu8Op::test_bit(Alu8Data::Reg(L), 4), 2),
+        0x66 => (Alu8Op::test_bit(Alu8Data::Addr(HL), 4), 4),
+        0x67 => (Alu8Op::test_bit(Alu8Data::Reg(A), 4), 2),
 
-        0x68 => (Alu8Op::TestBit(Alu8Data::Reg(B), 5), 2),
-        0x69 => (Alu8Op::TestBit(Alu8Data::Reg(C), 5), 2),
-        0x6A => (Alu8Op::TestBit(Alu8Data::Reg(D), 5), 2),
-        0x6B => (Alu8Op::TestBit(Alu8Data::Reg(E), 5), 2),
-        0x6C => (Alu8Op::TestBit(Alu8Data::Reg(H), 5), 2),
-        0x6D => (Alu8Op::TestBit(Alu8Data::Reg(L), 5), 2),
-        0x6E => (Alu8Op::TestBit(Alu8Data::Addr(HL), 5), 4),
-        0x6F => (Alu8Op::TestBit(Alu8Data::Reg(A), 5), 2),
+        0x68 => (Alu8Op::test_bit(Alu8Data::Reg(B), 5), 2),
+        0x69 => (Alu8Op::test_bit(Alu8Data::Reg(C), 5), 2),
+        0x6A => (Alu8Op::test_bit(Alu8Data::Reg(D), 5), 2),
+        0x6B => (Alu8Op::test_bit(Alu8Data::Reg(E), 5), 2),
+        0x6C => (Alu8Op::test_bit(Alu8Data::Reg(H), 5), 2),
+        0x6D => (Alu8Op::test_bit(Alu8Data::Reg(L), 5), 2),
+        0x6E => (Alu8Op::test_bit(Alu8Data::Addr(HL), 5), 4),
+        0x6F => (Alu8Op::test_bit(Alu8Data::Reg(A), 5), 2),
 
-        0x70 => (Alu8Op::TestBit(Alu8Data::Reg(B), 6), 2),
-        0x71 => (Alu8Op::TestBit(Alu8Data::Reg(C), 6), 2),
-        0x72 => (Alu8Op::TestBit(Alu8Data::Reg(D), 6), 2),
-        0x73 => (Alu8Op::TestBit(Alu8Data::Reg(E), 6), 2),
-        0x74 => (Alu8Op::TestBit(Alu8Data::Reg(H), 6), 2),
-        0x75 => (Alu8Op::TestBit(Alu8Data::Reg(L), 6), 2),
-        0x76 => (Alu8Op::TestBit(Alu8Data::Addr(HL), 6), 4),
-        0x77 => (Alu8Op::TestBit(Alu8Data::Reg(A), 6), 2),
+        0x70 => (Alu8Op::test_bit(Alu8Data::Reg(B), 6), 2),
+        0x71 => (Alu8Op::test_bit(Alu8Data::Reg(C), 6), 2),
+        0x72 => (Alu8Op::test_bit(Alu8Data::Reg(D), 6), 2),
+        0x73 => (Alu8Op::test_bit(Alu8Data::Reg(E), 6), 2),
+        0x74 => (Alu8Op::test_bit(Alu8Data::Reg(H), 6), 2),
+        0x75 => (Alu8Op::test_bit(Alu8Data::Reg(L), 6), 2),
+        0x76 => (Alu8Op::test_bit(Alu8Data::Addr(HL), 6), 4),
+        0x77 => (Alu8Op::test_bit(Alu8Data::Reg(A), 6), 2),
 
-        0x78 => (Alu8Op::TestBit(Alu8Data::Reg(B), 7), 2),
-        0x79 => (Alu8Op::TestBit(Alu8Data::Reg(C), 7), 2),
-        0x7A => (Alu8Op::TestBit(Alu8Data::Reg(D), 7), 2),
-        0x7B => (Alu8Op::TestBit(Alu8Data::Reg(E), 7), 2),
-        0x7C => (Alu8Op::TestBit(Alu8Data::Reg(H), 7), 2),
-        0x7D => (Alu8Op::TestBit(Alu8Data::Reg(L), 7), 2),
-        0x7E => (Alu8Op::TestBit(Alu8Data::Addr(HL), 7), 4),
-        0x7F => (Alu8Op::TestBit(Alu8Data::Reg(A), 7), 2),
+        0x78 => (Alu8Op::test_bit(Alu8Data::Reg(B), 7), 2),
+        0x79 => (Alu8Op::test_bit(Alu8Data::Reg(C), 7), 2),
+        0x7A => (Alu8Op::test_bit(Alu8Data::Reg(D), 7), 2),
+        0x7B => (Alu8Op::test_bit(Alu8Data::Reg(E), 7), 2),
+        0x7C => (Alu8Op::test_bit(Alu8Data::Reg(H), 7), 2),
+        0x7D => (Alu8Op::test_bit(Alu8Data::Reg(L), 7), 2),
+        0x7E => (Alu8Op::test_bit(Alu8Data::Addr(HL), 7), 4),
+        0x7F => (Alu8Op::test_bit(Alu8Data::Reg(A), 7), 2),
 
         // Reset Bits
-        0x80 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 0), 2),
-        0x81 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 0), 2),
-        0x82 => (Alu8Op::ResetBit(Alu8Data::Reg(D), 0), 2),
-        0x83 => (Alu8Op::ResetBit(Alu8Data::Reg(E), 0), 2),
-        0x84 => (Alu8Op::ResetBit(Alu8Data::Reg(H), 0), 2),
-        0x85 => (Alu8Op::ResetBit(Alu8Data::Reg(L), 0), 2),
-        0x86 => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 0), 4),
-        0x87 => (Alu8Op::ResetBit(Alu8Data::Reg(A), 0), 2),
+        0x80 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 0), 2),
+        0x81 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 0), 2),
+        0x82 => (Alu8Op::reset_bit(Alu8Data::Reg(D), 0), 2),
+        0x83 => (Alu8Op::reset_bit(Alu8Data::Reg(E), 0), 2),
+        0x84 => (Alu8Op::reset_bit(Alu8Data::Reg(H), 0), 2),
+        0x85 => (Alu8Op::reset_bit(Alu8Data::Reg(L), 0), 2),
+        0x86 => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 0), 4),
+        0x87 => (Alu8Op::reset_bit(Alu8Data::Reg(A), 0), 2),
 
-        0x88 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 1), 2),
-        0x89 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 1), 2),
-        0x8A => (Alu8Op::ResetBit(Alu8Data::Reg(D), 1), 2),
-        0x8B => (Alu8Op::ResetBit(Alu8Data::Reg(E), 1), 2),
-        0x8C => (Alu8Op::ResetBit(Alu8Data::Reg(H), 1), 2),
-        0x8D => (Alu8Op::ResetBit(Alu8Data::Reg(L), 1), 2),
-        0x8E => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 1), 4),
-        0x8F => (Alu8Op::ResetBit(Alu8Data::Reg(A), 1), 2),
+        0x88 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 1), 2),
+        0x89 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 1), 2),
+        0x8A => (Alu8Op::reset_bit(Alu8Data::Reg(D), 1), 2),
+        0x8B => (Alu8Op::reset_bit(Alu8Data::Reg(E), 1), 2),
+        0x8C => (Alu8Op::reset_bit(Alu8Data::Reg(H), 1), 2),
+        0x8D => (Alu8Op::reset_bit(Alu8Data::Reg(L), 1), 2),
+        0x8E => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 1), 4),
+        0x8F => (Alu8Op::reset_bit(Alu8Data::Reg(A), 1), 2),
 
-        0x90 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 2), 2),
-        0x91 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 2), 2),
-        0x92 => (Alu8Op::ResetBit(Alu8Data::Reg(D), 2), 2),
-        0x93 => (Alu8Op::ResetBit(Alu8Data::Reg(E), 2), 2),
-        0x94 => (Alu8Op::ResetBit(Alu8Data::Reg(H), 2), 2),
-        0x95 => (Alu8Op::ResetBit(Alu8Data::Reg(L), 2), 2),
-        0x96 => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 2), 4),
-        0x97 => (Alu8Op::ResetBit(Alu8Data::Reg(A), 2), 2),
+        0x90 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 2), 2),
+        0x91 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 2), 2),
+        0x92 => (Alu8Op::reset_bit(Alu8Data::Reg(D), 2), 2),
+        0x93 => (Alu8Op::reset_bit(Alu8Data::Reg(E), 2), 2),
+        0x94 => (Alu8Op::reset_bit(Alu8Data::Reg(H), 2), 2),
+        0x95 => (Alu8Op::reset_bit(Alu8Data::Reg(L), 2), 2),
+        0x96 => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 2), 4),
+        0x97 => (Alu8Op::reset_bit(Alu8Data::Reg(A), 2), 2),
 
-        0x98 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 3), 2),
-        0x99 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 3), 2),
-        0x9A => (Alu8Op::ResetBit(Alu8Data::Reg(D), 3), 2),
-        0x9B => (Alu8Op::ResetBit(Alu8Data::Reg(E), 3), 2),
-        0x9C => (Alu8Op::ResetBit(Alu8Data::Reg(H), 3), 2),
-        0x9D => (Alu8Op::ResetBit(Alu8Data::Reg(L), 3), 2),
-        0x9E => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 3), 4),
-        0x9F => (Alu8Op::ResetBit(Alu8Data::Reg(A), 3), 2),
+        0x98 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 3), 2),
+        0x99 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 3), 2),
+        0x9A => (Alu8Op::reset_bit(Alu8Data::Reg(D), 3), 2),
+        0x9B => (Alu8Op::reset_bit(Alu8Data::Reg(E), 3), 2),
+        0x9C => (Alu8Op::reset_bit(Alu8Data::Reg(H), 3), 2),
+        0x9D => (Alu8Op::reset_bit(Alu8Data::Reg(L), 3), 2),
+        0x9E => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 3), 4),
+        0x9F => (Alu8Op::reset_bit(Alu8Data::Reg(A), 3), 2),
 
-        0xA0 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 4), 2),
-        0xA1 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 4), 2),
-        0xA2 => (Alu8Op::ResetBit(Alu8Data::Reg(D), 4), 2),
-        0xA3 => (Alu8Op::ResetBit(Alu8Data::Reg(E), 4), 2),
-        0xA4 => (Alu8Op::ResetBit(Alu8Data::Reg(H), 4), 2),
-        0xA5 => (Alu8Op::ResetBit(Alu8Data::Reg(L), 4), 2),
-        0xA6 => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 4), 4),
-        0xA7 => (Alu8Op::ResetBit(Alu8Data::Reg(A), 4), 2),
+        0xA0 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 4), 2),
+        0xA1 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 4), 2),
+        0xA2 => (Alu8Op::reset_bit(Alu8Data::Reg(D), 4), 2),
+        0xA3 => (Alu8Op::reset_bit(Alu8Data::Reg(E), 4), 2),
+        0xA4 => (Alu8Op::reset_bit(Alu8Data::Reg(H), 4), 2),
+        0xA5 => (Alu8Op::reset_bit(Alu8Data::Reg(L), 4), 2),
+        0xA6 => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 4), 4),
+        0xA7 => (Alu8Op::reset_bit(Alu8Data::Reg(A), 4), 2),
 
-        0xA8 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 5), 2),
-        0xA9 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 5), 2),
-        0xAA => (Alu8Op::ResetBit(Alu8Data::Reg(D), 5), 2),
-        0xAB => (Alu8Op::ResetBit(Alu8Data::Reg(E), 5), 2),
-        0xAC => (Alu8Op::ResetBit(Alu8Data::Reg(H), 5), 2),
-        0xAD => (Alu8Op::ResetBit(Alu8Data::Reg(L), 5), 2),
-        0xAE => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 5), 4),
-        0xAF => (Alu8Op::ResetBit(Alu8Data::Reg(A), 5), 2),
+        0xA8 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 5), 2),
+        0xA9 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 5), 2),
+        0xAA => (Alu8Op::reset_bit(Alu8Data::Reg(D), 5), 2),
+        0xAB => (Alu8Op::reset_bit(Alu8Data::Reg(E), 5), 2),
+        0xAC => (Alu8Op::reset_bit(Alu8Data::Reg(H), 5), 2),
+        0xAD => (Alu8Op::reset_bit(Alu8Data::Reg(L), 5), 2),
+        0xAE => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 5), 4),
+        0xAF => (Alu8Op::reset_bit(Alu8Data::Reg(A), 5), 2),
 
-        0xB0 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 6), 2),
-        0xB1 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 6), 2),
-        0xB2 => (Alu8Op::ResetBit(Alu8Data::Reg(D), 6), 2),
-        0xB3 => (Alu8Op::ResetBit(Alu8Data::Reg(E), 6), 2),
-        0xB4 => (Alu8Op::ResetBit(Alu8Data::Reg(H), 6), 2),
-        0xB5 => (Alu8Op::ResetBit(Alu8Data::Reg(L), 6), 2),
-        0xB6 => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 6), 4),
-        0xB7 => (Alu8Op::ResetBit(Alu8Data::Reg(A), 6), 2),
+        0xB0 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 6), 2),
+        0xB1 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 6), 2),
+        0xB2 => (Alu8Op::reset_bit(Alu8Data::Reg(D), 6), 2),
+        0xB3 => (Alu8Op::reset_bit(Alu8Data::Reg(E), 6), 2),
+        0xB4 => (Alu8Op::reset_bit(Alu8Data::Reg(H), 6), 2),
+        0xB5 => (Alu8Op::reset_bit(Alu8Data::Reg(L), 6), 2),
+        0xB6 => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 6), 4),
+        0xB7 => (Alu8Op::reset_bit(Alu8Data::Reg(A), 6), 2),
 
-        0xB8 => (Alu8Op::ResetBit(Alu8Data::Reg(B), 7), 2),
-        0xB9 => (Alu8Op::ResetBit(Alu8Data::Reg(C), 7), 2),
-        0xBA => (Alu8Op::ResetBit(Alu8Data::Reg(D), 7), 2),
-        0xBB => (Alu8Op::ResetBit(Alu8Data::Reg(E), 7), 2),
-        0xBC => (Alu8Op::ResetBit(Alu8Data::Reg(H), 7), 2),
-        0xBD => (Alu8Op::ResetBit(Alu8Data::Reg(L), 7), 2),
-        0xBE => (Alu8Op::ResetBit(Alu8Data::Addr(HL), 7), 4),
-        0xBF => (Alu8Op::ResetBit(Alu8Data::Reg(A), 7), 2),
+        0xB8 => (Alu8Op::reset_bit(Alu8Data::Reg(B), 7), 2),
+        0xB9 => (Alu8Op::reset_bit(Alu8Data::Reg(C), 7), 2),
+        0xBA => (Alu8Op::reset_bit(Alu8Data::Reg(D), 7), 2),
+        0xBB => (Alu8Op::reset_bit(Alu8Data::Reg(E), 7), 2),
+        0xBC => (Alu8Op::reset_bit(Alu8Data::Reg(H), 7), 2),
+        0xBD => (Alu8Op::reset_bit(Alu8Data::Reg(L), 7), 2),
+        0xBE => (Alu8Op::reset_bit(Alu8Data::Addr(HL), 7), 4),
+        0xBF => (Alu8Op::reset_bit(Alu8Data::Reg(A), 7), 2),
 
         // Set bits.
-        0xC0 => (Alu8Op::SetBit(Alu8Data::Reg(B), 0), 2),
-        0xC1 => (Alu8Op::SetBit(Alu8Data::Reg(C), 0), 2),
-        0xC2 => (Alu8Op::SetBit(Alu8Data::Reg(D), 0), 2),
-        0xC3 => (Alu8Op::SetBit(Alu8Data::Reg(E), 0), 2),
-        0xC4 => (Alu8Op::SetBit(Alu8Data::Reg(H), 0), 2),
-        0xC5 => (Alu8Op::SetBit(Alu8Data::Reg(L), 0), 2),
-        0xC6 => (Alu8Op::SetBit(Alu8Data::Addr(HL), 0), 4),
-        0xC7 => (Alu8Op::SetBit(Alu8Data::Reg(A), 0), 2),
+        0xC0 => (Alu8Op::set_bit(Alu8Data::Reg(B), 0), 2),
+        0xC1 => (Alu8Op::set_bit(Alu8Data::Reg(C), 0), 2),
+        0xC2 => (Alu8Op::set_bit(Alu8Data::Reg(D), 0), 2),
+        0xC3 => (Alu8Op::set_bit(Alu8Data::Reg(E), 0), 2),
+        0xC4 => (Alu8Op::set_bit(Alu8Data::Reg(H), 0), 2),
+        0xC5 => (Alu8Op::set_bit(Alu8Data::Reg(L), 0), 2),
+        0xC6 => (Alu8Op::set_bit(Alu8Data::Addr(HL), 0), 4),
+        0xC7 => (Alu8Op::set_bit(Alu8Data::Reg(A), 0), 2),
 
-        0xC8 => (Alu8Op::SetBit(Alu8Data::Reg(B), 1), 2),
-        0xC9 => (Alu8Op::SetBit(Alu8Data::Reg(C), 1), 2),
-        0xCA => (Alu8Op::SetBit(Alu8Data::Reg(D), 1), 2),
-        0xCB => (Alu8Op::SetBit(Alu8Data::Reg(E), 1), 2),
-        0xCC => (Alu8Op::SetBit(Alu8Data::Reg(H), 1), 2),
-        0xCD => (Alu8Op::SetBit(Alu8Data::Reg(L), 1), 2),
-        0xCE => (Alu8Op::SetBit(Alu8Data::Addr(HL), 1), 4),
-        0xCF => (Alu8Op::SetBit(Alu8Data::Reg(A), 1), 2),
+        0xC8 => (Alu8Op::set_bit(Alu8Data::Reg(B), 1), 2),
+        0xC9 => (Alu8Op::set_bit(Alu8Data::Reg(C), 1), 2),
+        0xCA => (Alu8Op::set_bit(Alu8Data::Reg(D), 1), 2),
+        0xCB => (Alu8Op::set_bit(Alu8Data::Reg(E), 1), 2),
+        0xCC => (Alu8Op::set_bit(Alu8Data::Reg(H), 1), 2),
+        0xCD => (Alu8Op::set_bit(Alu8Data::Reg(L), 1), 2),
+        0xCE => (Alu8Op::set_bit(Alu8Data::Addr(HL), 1), 4),
+        0xCF => (Alu8Op::set_bit(Alu8Data::Reg(A), 1), 2),
 
-        0xD0 => (Alu8Op::SetBit(Alu8Data::Reg(B), 2), 2),
-        0xD1 => (Alu8Op::SetBit(Alu8Data::Reg(C), 2), 2),
-        0xD2 => (Alu8Op::SetBit(Alu8Data::Reg(D), 2), 2),
-        0xD3 => (Alu8Op::SetBit(Alu8Data::Reg(E), 2), 2),
-        0xD4 => (Alu8Op::SetBit(Alu8Data::Reg(H), 2), 2),
-        0xD5 => (Alu8Op::SetBit(Alu8Data::Reg(L), 2), 2),
-        0xD6 => (Alu8Op::SetBit(Alu8Data::Addr(HL), 2), 4),
-        0xD7 => (Alu8Op::SetBit(Alu8Data::Reg(A), 2), 2),
+        0xD0 => (Alu8Op::set_bit(Alu8Data::Reg(B), 2), 2),
+        0xD1 => (Alu8Op::set_bit(Alu8Data::Reg(C), 2), 2),
+        0xD2 => (Alu8Op::set_bit(Alu8Data::Reg(D), 2), 2),
+        0xD3 => (Alu8Op::set_bit(Alu8Data::Reg(E), 2), 2),
+        0xD4 => (Alu8Op::set_bit(Alu8Data::Reg(H), 2), 2),
+        0xD5 => (Alu8Op::set_bit(Alu8Data::Reg(L), 2), 2),
+        0xD6 => (Alu8Op::set_bit(Alu8Data::Addr(HL), 2), 4),
+        0xD7 => (Alu8Op::set_bit(Alu8Data::Reg(A), 2), 2),
 
-        0xD8 => (Alu8Op::SetBit(Alu8Data::Reg(B), 3), 2),
-        0xD9 => (Alu8Op::SetBit(Alu8Data::Reg(C), 3), 2),
-        0xDA => (Alu8Op::SetBit(Alu8Data::Reg(D), 3), 2),
-        0xDB => (Alu8Op::SetBit(Alu8Data::Reg(E), 3), 2),
-        0xDC => (Alu8Op::SetBit(Alu8Data::Reg(H), 3), 2),
-        0xDD => (Alu8Op::SetBit(Alu8Data::Reg(L), 3), 2),
-        0xDE => (Alu8Op::SetBit(Alu8Data::Addr(HL), 3), 4),
-        0xDF => (Alu8Op::SetBit(Alu8Data::Reg(A), 3), 2),
+        0xD8 => (Alu8Op::set_bit(Alu8Data::Reg(B), 3), 2),
+        0xD9 => (Alu8Op::set_bit(Alu8Data::Reg(C), 3), 2),
+        0xDA => (Alu8Op::set_bit(Alu8Data::Reg(D), 3), 2),
+        0xDB => (Alu8Op::set_bit(Alu8Data::Reg(E), 3), 2),
+        0xDC => (Alu8Op::set_bit(Alu8Data::Reg(H), 3), 2),
+        0xDD => (Alu8Op::set_bit(Alu8Data::Reg(L), 3), 2),
+        0xDE => (Alu8Op::set_bit(Alu8Data::Addr(HL), 3), 4),
+        0xDF => (Alu8Op::set_bit(Alu8Data::Reg(A), 3), 2),
 
-        0xE0 => (Alu8Op::SetBit(Alu8Data::Reg(B), 4), 2),
-        0xE1 => (Alu8Op::SetBit(Alu8Data::Reg(C), 4), 2),
-        0xE2 => (Alu8Op::SetBit(Alu8Data::Reg(D), 4), 2),
-        0xE3 => (Alu8Op::SetBit(Alu8Data::Reg(E), 4), 2),
-        0xE4 => (Alu8Op::SetBit(Alu8Data::Reg(H), 4), 2),
-        0xE5 => (Alu8Op::SetBit(Alu8Data::Reg(L), 4), 2),
-        0xE6 => (Alu8Op::SetBit(Alu8Data::Addr(HL), 4), 4),
-        0xE7 => (Alu8Op::SetBit(Alu8Data::Reg(A), 4), 2),
+        0xE0 => (Alu8Op::set_bit(Alu8Data::Reg(B), 4), 2),
+        0xE1 => (Alu8Op::set_bit(Alu8Data::Reg(C), 4), 2),
+        0xE2 => (Alu8Op::set_bit(Alu8Data::Reg(D), 4), 2),
+        0xE3 => (Alu8Op::set_bit(Alu8Data::Reg(E), 4), 2),
+        0xE4 => (Alu8Op::set_bit(Alu8Data::Reg(H), 4), 2),
+        0xE5 => (Alu8Op::set_bit(Alu8Data::Reg(L), 4), 2),
+        0xE6 => (Alu8Op::set_bit(Alu8Data::Addr(HL), 4), 4),
+        0xE7 => (Alu8Op::set_bit(Alu8Data::Reg(A), 4), 2),
 
-        0xE8 => (Alu8Op::SetBit(Alu8Data::Reg(B), 5), 2),
-        0xE9 => (Alu8Op::SetBit(Alu8Data::Reg(C), 5), 2),
-        0xEA => (Alu8Op::SetBit(Alu8Data::Reg(D), 5), 2),
-        0xEB => (Alu8Op::SetBit(Alu8Data::Reg(E), 5), 2),
-        0xEC => (Alu8Op::SetBit(Alu8Data::Reg(H), 5), 2),
-        0xED => (Alu8Op::SetBit(Alu8Data::Reg(L), 5), 2),
-        0xEE => (Alu8Op::SetBit(Alu8Data::Addr(HL), 5), 4),
-        0xEF => (Alu8Op::SetBit(Alu8Data::Reg(A), 5), 2),
+        0xE8 => (Alu8Op::set_bit(Alu8Data::Reg(B), 5), 2),
+        0xE9 => (Alu8Op::set_bit(Alu8Data::Reg(C), 5), 2),
+        0xEA => (Alu8Op::set_bit(Alu8Data::Reg(D), 5), 2),
+        0xEB => (Alu8Op::set_bit(Alu8Data::Reg(E), 5), 2),
+        0xEC => (Alu8Op::set_bit(Alu8Data::Reg(H), 5), 2),
+        0xED => (Alu8Op::set_bit(Alu8Data::Reg(L), 5), 2),
+        0xEE => (Alu8Op::set_bit(Alu8Data::Addr(HL), 5), 4),
+        0xEF => (Alu8Op::set_bit(Alu8Data::Reg(A), 5), 2),
 
-        0xF0 => (Alu8Op::SetBit(Alu8Data::Reg(B), 6), 2),
-        0xF1 => (Alu8Op::SetBit(Alu8Data::Reg(C), 6), 2),
-        0xF2 => (Alu8Op::SetBit(Alu8Data::Reg(D), 6), 2),
-        0xF3 => (Alu8Op::SetBit(Alu8Data::Reg(E), 6), 2),
-        0xF4 => (Alu8Op::SetBit(Alu8Data::Reg(H), 6), 2),
-        0xF5 => (Alu8Op::SetBit(Alu8Data::Reg(L), 6), 2),
-        0xF6 => (Alu8Op::SetBit(Alu8Data::Addr(HL), 6), 4),
-        0xF7 => (Alu8Op::SetBit(Alu8Data::Reg(A), 6), 2),
+        0xF0 => (Alu8Op::set_bit(Alu8Data::Reg(B), 6), 2),
+        0xF1 => (Alu8Op::set_bit(Alu8Data::Reg(C), 6), 2),
+        0xF2 => (Alu8Op::set_bit(Alu8Data::Reg(D), 6), 2),
+        0xF3 => (Alu8Op::set_bit(Alu8Data::Reg(E), 6), 2),
+        0xF4 => (Alu8Op::set_bit(Alu8Data::Reg(H), 6), 2),
+        0xF5 => (Alu8Op::set_bit(Alu8Data::Reg(L), 6), 2),
+        0xF6 => (Alu8Op::set_bit(Alu8Data::Addr(HL), 6), 4),
+        0xF7 => (Alu8Op::set_bit(Alu8Data::Reg(A), 6), 2),
 
-        0xF8 => (Alu8Op::SetBit(Alu8Data::Reg(B), 7), 2),
-        0xF9 => (Alu8Op::SetBit(Alu8Data::Reg(C), 7), 2),
-        0xFA => (Alu8Op::SetBit(Alu8Data::Reg(D), 7), 2),
-        0xFB => (Alu8Op::SetBit(Alu8Data::Reg(E), 7), 2),
-        0xFC => (Alu8Op::SetBit(Alu8Data::Reg(H), 7), 2),
-        0xFD => (Alu8Op::SetBit(Alu8Data::Reg(L), 7), 2),
-        0xFE => (Alu8Op::SetBit(Alu8Data::Addr(HL), 7), 4),
-        0xFF => (Alu8Op::SetBit(Alu8Data::Reg(A), 7), 2),
+        0xF8 => (Alu8Op::set_bit(Alu8Data::Reg(B), 7), 2),
+        0xF9 => (Alu8Op::set_bit(Alu8Data::Reg(C), 7), 2),
+        0xFA => (Alu8Op::set_bit(Alu8Data::Reg(D), 7), 2),
+        0xFB => (Alu8Op::set_bit(Alu8Data::Reg(E), 7), 2),
+        0xFC => (Alu8Op::set_bit(Alu8Data::Reg(H), 7), 2),
+        0xFD => (Alu8Op::set_bit(Alu8Data::Reg(L), 7), 2),
+        0xFE => (Alu8Op::set_bit(Alu8Data::Addr(HL), 7), 4),
+        0xFF => (Alu8Op::set_bit(Alu8Data::Reg(A), 7), 2),
 
         // Needed to satisfy exhaustive checker, but completely unreachable.
         _ => panic!("Invalid opcode!"),

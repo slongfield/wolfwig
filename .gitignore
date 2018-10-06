@@ -16,7 +16,6 @@ Cargo.lock
 *.swp
 
 # ¬.¬
-/roms/*.gb
-/roms/*.zip
-/roms/*.bin
-/bootrom/*.bin
+/*roms/*.gb
+/*roms/*.zip
+/*roms/*.bin
