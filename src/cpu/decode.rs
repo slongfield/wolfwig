@@ -418,6 +418,8 @@ pub enum Alu16 {
     Add,
     Decrement,
     Increment,
+    Move,
+    MoveAndAdd,
     Unknown,
 }
 
@@ -426,6 +428,7 @@ pub struct Alu16Op {
     pub op: Alu16,
     pub dest: Reg16,
     pub y: Alu16Data,
+    pub imm: u8,
 }
 
 impl Alu16Op {
@@ -434,6 +437,7 @@ impl Alu16Op {
             op: Alu16::Add,
             dest,
             y: Alu16Data::Reg(y),
+            imm: 0,
         }
     }
 
@@ -442,6 +446,7 @@ impl Alu16Op {
             op: Alu16::Add,
             dest,
             y: Alu16Data::Imm(y),
+            imm: 0,
         }
     }
 
@@ -450,13 +455,34 @@ impl Alu16Op {
             op: Alu16::Decrement,
             dest,
             y: Alu16Data::Ignore,
+            imm: 0,
         }
     }
+
     fn inc(dest: Reg16) -> Self {
         Self {
             op: Alu16::Increment,
             dest,
             y: Alu16Data::Ignore,
+            imm: 0,
+        }
+    }
+
+    fn move_reg(dest: Reg16, src: Reg16) -> Self {
+        Self {
+            op: Alu16::Move,
+            dest,
+            y: Alu16Data::Reg(src),
+            imm: 0,
+        }
+    }
+
+    fn move_and_add(dest: Reg16, src: Reg16, imm: u8) -> Self {
+        Self {
+            op: Alu16::MoveAndAdd,
+            dest,
+            y: Alu16Data::Reg(src),
+            imm,
         }
     }
 
@@ -465,6 +491,7 @@ impl Alu16Op {
             op: Alu16::Unknown,
             dest: HL,
             y: Alu16Data::Ignore,
+            imm: 0,
         }
     }
 }
@@ -479,6 +506,8 @@ impl fmt::Display for Alu16Op {
             },
             Alu16::Increment => write!(f, "INC {}", self.dest),
             Alu16::Decrement => write!(f, "DEC {}", self.dest),
+            Alu16::Move => write!(f, "LD {},{:?}", self.dest, self.y),
+            Alu16::MoveAndAdd => write!(f, "LD {},{:?}+0x{:02X}", self.dest, self.y, self.imm),
             Alu16::Unknown => write!(f, "ALU16 ???"),
         }
     }
@@ -532,10 +561,10 @@ fn decode_alu8(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x2D => (Alu8Op::decrement(Alu8Data::Reg(L)), 1, 1),
         0x3D => (Alu8Op::decrement(Alu8Data::Reg(A)), 1, 1),
 
-        0x07 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 1, 1),
-        0x0F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 1, 1),
-        0x17 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 1, 1),
-        0x1F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 1, 1),
+        0x07 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 1, 1),
+        0x0F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 1, 1),
+        0x17 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 1, 1),
+        0x1F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 1, 1),
 
         0x27 => (Alu8Op::decimal_adjust(), 1, 1),
         0x2F => (Alu8Op::complement(), 1, 1),
@@ -655,6 +684,10 @@ fn decode_alu16(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x3B => (Alu16Op::dec(SP), 1, 2),
 
         0xE8 => (Alu16Op::add_imm(SP, rom.read(pc + 1)), 2, 4),
+
+        0xF8 => (Alu16Op::move_and_add(HL, SP, rom.read(pc + 1)), 2, 3),
+
+        0xF9 => (Alu16Op::move_reg(SP, HL), 1, 2),
 
         _ => (Alu16Op::unknown(), 0, 0),
     };
@@ -849,41 +882,41 @@ fn decode_jump(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
 ///! Decode prefix 0xCB extended ops
 fn decode_extended(opcode: u8) -> (Op, usize, usize) {
     let (alu_op, time) = match opcode {
-        0x00 => (Alu8Op::rotate_left(Alu8Data::Reg(B)), 2),
-        0x01 => (Alu8Op::rotate_left(Alu8Data::Reg(C)), 2),
-        0x02 => (Alu8Op::rotate_left(Alu8Data::Reg(D)), 2),
-        0x03 => (Alu8Op::rotate_left(Alu8Data::Reg(E)), 2),
-        0x04 => (Alu8Op::rotate_left(Alu8Data::Reg(H)), 2),
-        0x05 => (Alu8Op::rotate_left(Alu8Data::Reg(L)), 2),
-        0x06 => (Alu8Op::rotate_left(Alu8Data::Addr(HL)), 4),
-        0x07 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 2),
+        0x00 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(B)), 2),
+        0x01 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(C)), 2),
+        0x02 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(D)), 2),
+        0x03 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(E)), 2),
+        0x04 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(H)), 2),
+        0x05 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(L)), 2),
+        0x06 => (Alu8Op::rotate_left_carry(Alu8Data::Addr(HL)), 4),
+        0x07 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 2),
 
-        0x08 => (Alu8Op::rotate_right(Alu8Data::Reg(B)), 2),
-        0x09 => (Alu8Op::rotate_right(Alu8Data::Reg(C)), 2),
-        0x0A => (Alu8Op::rotate_right(Alu8Data::Reg(D)), 2),
-        0x0B => (Alu8Op::rotate_right(Alu8Data::Reg(E)), 2),
-        0x0C => (Alu8Op::rotate_right(Alu8Data::Reg(H)), 2),
-        0x0D => (Alu8Op::rotate_right(Alu8Data::Reg(L)), 2),
-        0x0E => (Alu8Op::rotate_right(Alu8Data::Addr(HL)), 4),
-        0x0F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 2),
+        0x08 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(B)), 2),
+        0x09 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(C)), 2),
+        0x0A => (Alu8Op::rotate_right_carry(Alu8Data::Reg(D)), 2),
+        0x0B => (Alu8Op::rotate_right_carry(Alu8Data::Reg(E)), 2),
+        0x0C => (Alu8Op::rotate_right_carry(Alu8Data::Reg(H)), 2),
+        0x0D => (Alu8Op::rotate_right_carry(Alu8Data::Reg(L)), 2),
+        0x0E => (Alu8Op::rotate_right_carry(Alu8Data::Addr(HL)), 4),
+        0x0F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 2),
 
-        0x10 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(B)), 2),
-        0x11 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(C)), 2),
-        0x12 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(D)), 2),
-        0x13 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(E)), 2),
-        0x14 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(H)), 2),
-        0x15 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(L)), 2),
-        0x16 => (Alu8Op::rotate_left_carry(Alu8Data::Addr(HL)), 4),
-        0x17 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 2),
+        0x10 => (Alu8Op::rotate_left(Alu8Data::Reg(B)), 2),
+        0x11 => (Alu8Op::rotate_left(Alu8Data::Reg(C)), 2),
+        0x12 => (Alu8Op::rotate_left(Alu8Data::Reg(D)), 2),
+        0x13 => (Alu8Op::rotate_left(Alu8Data::Reg(E)), 2),
+        0x14 => (Alu8Op::rotate_left(Alu8Data::Reg(H)), 2),
+        0x15 => (Alu8Op::rotate_left(Alu8Data::Reg(L)), 2),
+        0x16 => (Alu8Op::rotate_left(Alu8Data::Addr(HL)), 4),
+        0x17 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 2),
 
-        0x18 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(B)), 2),
-        0x19 => (Alu8Op::rotate_right_carry(Alu8Data::Reg(C)), 2),
-        0x1A => (Alu8Op::rotate_right_carry(Alu8Data::Reg(D)), 2),
-        0x1B => (Alu8Op::rotate_right_carry(Alu8Data::Reg(E)), 2),
-        0x1C => (Alu8Op::rotate_right_carry(Alu8Data::Reg(H)), 2),
-        0x1D => (Alu8Op::rotate_right_carry(Alu8Data::Reg(L)), 2),
-        0x1E => (Alu8Op::rotate_right_carry(Alu8Data::Addr(HL)), 4),
-        0x1F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 2),
+        0x18 => (Alu8Op::rotate_right(Alu8Data::Reg(B)), 2),
+        0x19 => (Alu8Op::rotate_right(Alu8Data::Reg(C)), 2),
+        0x1A => (Alu8Op::rotate_right(Alu8Data::Reg(D)), 2),
+        0x1B => (Alu8Op::rotate_right(Alu8Data::Reg(E)), 2),
+        0x1C => (Alu8Op::rotate_right(Alu8Data::Reg(H)), 2),
+        0x1D => (Alu8Op::rotate_right(Alu8Data::Reg(L)), 2),
+        0x1E => (Alu8Op::rotate_right(Alu8Data::Addr(HL)), 4),
+        0x1F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 2),
 
         0x20 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(B)), 2),
         0x21 => (Alu8Op::shift_left_arithmetic(Alu8Data::Reg(C)), 2),

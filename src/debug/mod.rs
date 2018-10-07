@@ -146,7 +146,20 @@ impl Debug {
                             println!("0x{:02X}", self.wolfwig.mem.read(addr as usize))
                         }
                         Some(addr) => println!("Addr 0x{:X} too large", addr),
-                        _ => println!("Could not parse {}", val),
+                        None => {
+                            let mut range = val.split('-');
+                            if let (Some(start), Some(end)) =
+                                (next_as_int32(&mut range), next_as_int32(&mut range))
+                            {
+                                print!("[");
+                                for addr in start..(end + 1) {
+                                    print!(" 0x{:02X}", self.wolfwig.mem.read(addr as usize));
+                                }
+                                println!(" ]");
+                            } else {
+                                println!("Could not parse {}", val);
+                            }
+                        }
                     },
                     None => self.wolfwig.print_registers(),
                 },

@@ -57,7 +57,8 @@ impl Wolfwig {
         self.serial.connect_channel(tx);
         thread::spawn(move || loop {
             let received = rx.recv().unwrap();
-            println!("Serial: 0x{:02X} ({})", received, char::from(received));
+            //println!("Serial: 0x{:02X} ({})", received, char::from(received));
+            print!("{}", char::from(received));
         });
     }
 

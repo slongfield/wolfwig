@@ -7,7 +7,7 @@ use std::time::Duration;
 // 16 + 16*8*4 = 528
 const MAX_X: u32 = 528;
 // 8 tiles tall, each 8 pixels, with a one-pixel spaces. 4 pixels per pixel
-const MAX_Y: u32 = 264;
+const MAX_Y: u32 = 528;
 
 const CYCLE_LEN: usize = 70224;
 
@@ -66,12 +66,12 @@ impl Ppu {
         let mut y_tile_pos: i32 = 0;
 
         // Render the background tileset
-        for addr in (0x8000..0x8a00).step_by(2) {
+        for addr in (0x8000..0x9000).step_by(2) {
             let upper_byte = mem.read(addr);
             let lower_byte = mem.read(addr + 1);
             for (index, pixel) in (0..8).rev().enumerate() {
                 let index = index as i32;
-                let pixel = (((upper_byte >> pixel) & 1) << 1) | (lower_byte >> pixel);
+                let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
                 let pcolor = pixel.wrapping_mul(84);
                 self.canvas
                     .set_draw_color(pixels::Color::RGB(pcolor, pcolor, pcolor));

@@ -141,7 +141,8 @@ impl Registers {
         match r {
             Reg16::AF => {
                 self.a = (data >> 8) as u8;
-                self.f = data as u8;
+                // Only top 4 bits of F are writeable.
+                self.f = (data & 0xF0) as u8;
             }
             Reg16::BC => {
                 self.b = (data >> 8) as u8;
@@ -207,5 +208,19 @@ impl fmt::Display for Registers {
             self.read_flag(Flag::HalfCarry),
             self.read_flag(Flag::Carry)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_af_shows_up_in_flags() {
+        let mut regs = Registers::new();
+
+        regs.set16(Reg16::AF, 0xFFFF);
+
+        assert_eq!(regs.read_flag(Flag::Zero), true);
     }
 }

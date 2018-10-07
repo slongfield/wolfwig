@@ -74,7 +74,6 @@ impl LR25902 {
     }
 
     fn execute_op(&mut self, mem: &mut Memory, op: &NextOp) -> u16 {
-        //println!("Executing op {} ", op.op);
         let pc = self.regs.read16(Reg16::PC);
         let mut next_pc = pc + op.pc_offset;
         match op.op {
@@ -107,6 +106,17 @@ impl LR25902 {
             Op::Store(Address::Immediate16(addr), data_reg) => {
                 let data = self.regs.read8(data_reg);
                 mem.write(addr as usize, data);
+            }
+            Op::WideStore(Address::Register16(addr_reg), data_reg) => {
+                let data = self.regs.read16(data_reg);
+                let addr = self.regs.read16(addr_reg);
+                mem.write(addr as usize, data as u8);
+                mem.write((addr + 1) as usize, (data >> 8) as u8);
+            }
+            Op::WideStore(Address::Immediate16(addr), data_reg) => {
+                let data = self.regs.read16(data_reg);
+                mem.write(addr as usize, data as u8);
+                mem.write((addr + 1) as usize, (data >> 8) as u8);
             }
             Op::StoreAndDecrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
@@ -177,7 +187,6 @@ impl LR25902 {
                 self.regs.set8(dest, data);
             }
             Op::Push(reg) => {
-                // TODO(slongfield): Commonize this code with Call
                 let data = self.regs.read16(reg);
                 let sp = self.regs.read16(Reg16::SP);
                 mem.write((sp - 1) as usize, ((data >> 8) & 0xFF) as u8);
@@ -185,7 +194,6 @@ impl LR25902 {
                 self.regs.set16(Reg16::SP, sp - 2);
             }
             Op::Pop(reg) => {
-                // TODO(slongfield): Commonize this code with Return
                 let sp = self.regs.read16(Reg16::SP);
                 let data_low = u16::from(mem.read(sp as usize));
                 let data_high = u16::from(mem.read((sp + 1) as usize));
@@ -253,15 +261,15 @@ impl LR25902 {
             Alu8::Add => {
                 let out = (x as i8).wrapping_add(y as i8) as u8;
                 let carry = u16::from(x) + u16::from(y) > 0xFF;
-                // TODO(slongfield): Half Carry
-                (Some(out), Some(out == 0), Some(false), None, Some(carry))
+                let h = (x & 0xF) + (y & 0xF) > 0xF;
+                (Some(out), Some(out == 0), Some(false), Some(h), Some(carry))
             }
             Alu8::AddWithCarry => {
                 let carry_in = u8::from(self.regs.read_flag(Flag::Carry));
                 let out = (x as i8).wrapping_add(y as i8).wrapping_add(carry_in as i8) as u8;
                 let carry = u16::from(x) + u16::from(y) + u16::from(carry_in) > 0xFF;
-                // TODO(slongfield): Half Carry
-                (Some(out), Some(out == 0), Some(false), None, Some(carry))
+                let h = (x & 0xF) + (y & 0xF) + carry_in > 0xF;
+                (Some(out), Some(out == 0), Some(false), Some(h), Some(carry))
             }
             Alu8::And => {
                 let out = x & y;
@@ -272,14 +280,43 @@ impl LR25902 {
             Alu8::Compare => {
                 let out = (x as i8).wrapping_sub(y as i8) as u8;
                 let carry = i16::from(x as i8) - i16::from(y as i8) < 0;
-                // TODO(slongfield): Half Carry
-                (None, Some(out == 0), Some(false), None, Some(carry))
+                let h = i16::from((x & 0xF) as i8).wrapping_sub(i16::from((y & 0xF) as i8)) < 0;
+                (None, Some(out == 0), Some(false), Some(h), Some(carry))
             }
             Alu8::Complement => {
                 let out = !x;
                 (Some(out), None, Some(true), Some(true), None)
             }
-            Alu8::DecimalAdjust => (None, None, None, None, None),
+            Alu8::DecimalAdjust => {
+                let subtract = self.regs.read_flag(Flag::Subtract);
+                let carry_in = self.regs.read_flag(Flag::Carry);
+                let half_carry_in = self.regs.read_flag(Flag::HalfCarry);
+                let mut out = u16::from(x);
+                let mut carry = None;
+
+                if subtract {
+                    if half_carry_in {
+                        out = out.wrapping_sub(6);
+                    }
+                    if carry_in {
+                        out = out.wrapping_sub(0x60);
+                    }
+                } else {
+                    let low_nibble = out & 0xF;
+                    if low_nibble > 9 || half_carry_in {
+                        out = out.wrapping_add(6);
+                    }
+                    let high_nibble = out >> 4;
+                    if high_nibble > 9 || carry_in {
+                        out = out.wrapping_add(0x60);
+                        carry = Some(true);
+                    }
+                }
+
+                let out = (out & 0xFF) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), None, Some(false), carry)
+            }
             Alu8::Decrement => {
                 let out = (x as i8).wrapping_sub(1) as u8;
                 let half = ((x & 0xF) as i8).wrapping_sub(1) < 0;
@@ -287,8 +324,8 @@ impl LR25902 {
             }
             Alu8::Increment => {
                 let out = (x as i8).wrapping_add(1) as u8;
-                // TODO(slongfield): Half Carry
-                (Some(out), Some(out == 0), Some(false), None, None)
+                let half = ((x & 0xF) as i8).wrapping_add(1) > 0xF;
+                (Some(out), Some(out == 0), Some(false), Some(half), None)
             }
             Alu8::Or => {
                 let out = x | y;
@@ -300,13 +337,6 @@ impl LR25902 {
                 (Some(out), None, None, None, None)
             }
             Alu8::RotateLeft => {
-                let rot_data = u16::from(x) << 1;
-                let carry = ((1 << 8) & rot_data) != 0;
-                let out = (rot_data & 0xFF) as u8;
-                let zero = out == 0;
-                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
-            }
-            Alu8::RotateLeftCarry => {
                 let carry_in = u16::from(self.regs.read_flag(Flag::Carry));
                 let rot_data = (u16::from(x) | (carry_in << 8)) << 1;
                 let carry = ((1 << 8) & rot_data) != 0;
@@ -315,39 +345,78 @@ impl LR25902 {
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
+            Alu8::RotateLeftCarry => {
+                let rot_data = u16::from(x) << 1;
+                let carry = ((1 << 8) & rot_data) != 0;
+                let out = (rot_data & 0xFF) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
             Alu8::RotateRight => {
-                let rot_data = u16::from(x) >> 1;
+                let carry_in = u16::from(self.regs.read_flag(Flag::Carry));
+                let rot_data = u16::from(x >> 1);
                 let carry = u16::from(x & 1);
-                let out = ((rot_data | (carry << 8)) & 0xFF) as u8;
+                let out = ((rot_data | (carry_in << 7)) & 0xFF) as u8;
                 let zero = out == 0;
                 let carry = carry != 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
-            Alu8::RotateRightCarry => (None, None, None, None, None),
+            Alu8::RotateRightCarry => {
+                let rot_data = u16::from(x) >> 1;
+                let carry = u16::from(x & 1);
+                let out = ((rot_data | (carry << 7)) & 0xFF) as u8;
+                let zero = out == 0;
+                let carry = carry != 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
             Alu8::SetBit => {
                 let out = x | (1 << y);
                 (Some(out), None, None, None, None)
             }
             Alu8::SetCarryFlag => (None, None, None, None, Some(true)),
-            Alu8::ShiftLeftArithmetic => (None, None, None, None, None),
-            Alu8::ShiftRightArithmetic => (None, None, None, None, None),
-            Alu8::ShiftRightLogical => (None, None, None, None, None),
+            Alu8::ShiftLeftArithmetic => {
+                error!("No implementation for SLA");
+                (None, None, None, None, None)
+            }
+            Alu8::ShiftRightArithmetic => {
+                error!("No implementation for SRA");
+                (None, None, None, None, None)
+            }
+            Alu8::ShiftRightLogical => {
+                let out = x >> 1;
+                let carry = u16::from(x & 1);
+                let zero = out == 0;
+                let carry = carry != 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
+            }
             Alu8::Sub => {
                 let out = (x as i8).wrapping_sub(y as i8) as u8;
-                let carry = i16::from(x as i8) - i16::from(y as i8) < 0;
+                let carry = i16::from(x as i8).wrapping_sub(i16::from(y as i8)) < 0;
+                let h = i16::from((x & 0xF) as i8).wrapping_sub(i16::from((y & 0xF) as i8)) < 0;
                 let zero = out == 0;
-                // TODO(slongfield): Half Carry
-                (Some(out), Some(zero), Some(false), None, Some(carry))
+                (Some(out), Some(zero), Some(true), Some(h), Some(carry))
             }
             Alu8::SubWithCarry => {
                 let carry_in = u8::from(self.regs.read_flag(Flag::Carry));
                 let out = (x as i8).wrapping_sub(y as i8).wrapping_sub(carry_in as i8) as u8;
-                let carry = i16::from(x as i8) - i16::from(y as i8) - i16::from(carry_in) < 0;
-                // TODO(slongfield): Half Carry
+                let carry = i16::from(x as i8)
+                    .wrapping_sub(i16::from(y as i8))
+                    .wrapping_sub(i16::from(carry_in))
+                    < 0;
+                let h = i16::from((x & 0xF) as i8)
+                    .wrapping_sub(i16::from((y & 0xF) as i8))
+                    .wrapping_sub(i16::from(carry_in))
+                    < 0;
                 let zero = out == 0;
-                (Some(out), Some(zero), Some(false), None, Some(carry))
+                (Some(out), Some(zero), Some(true), Some(h), Some(carry))
             }
-            Alu8::Swap => (None, None, None, None, None),
+            Alu8::Swap => {
+                let low_nibble = u16::from(x & 0xF);
+                let high_nibble = u16::from(x >> 4);
+                let out = ((low_nibble << 4) | high_nibble) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), None, None, None)
+            }
             Alu8::TestBit => {
                 let zero = x & (1 << y) == 0;
                 (None, Some(zero), Some(false), Some(true), None)
@@ -403,6 +472,18 @@ impl LR25902 {
                 let x = self.regs.read16(op.dest);
                 self.regs.set16(op.dest, x.wrapping_add(1));
             }
+            Alu16::Move => {
+                if let Alu16Data::Reg(yreg) = op.y {
+                    let y = self.regs.read16(yreg);
+                    self.regs.set16(op.dest, y);
+                }
+            }
+            Alu16::MoveAndAdd => {
+                if let Alu16Data::Reg(yreg) = op.y {
+                    let y = self.regs.read16(yreg);
+                    self.regs.set16(op.dest, y.wrapping_add(op.imm.into()));
+                }
+            }
             Alu16::Unknown => {}
         }
     }
@@ -415,12 +496,12 @@ mod tests {
     #[test]
     fn rotate_left_carry() {
         let mut cpu = LR25902::new();
-        cpu.regs.set8(Reg8::A, 0xFF);
-
         let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
 
+        cpu.regs.set8(Reg8::A, 0xFF);
+
         let op = Alu8Op {
-            op: Alu8::RotateLeftCarry,
+            op: Alu8::RotateLeft,
             dest: Alu8Data::Reg(Reg8::A),
             y: Alu8Data::Ignore,
         };
@@ -432,5 +513,214 @@ mod tests {
 
         cpu.execute_alu8(&op, &mut mem);
         assert_eq!(cpu.regs.read8(Reg8::A), 0b1111_1101);
+    }
+
+    #[test]
+    fn rotate_right() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        cpu.regs.set8(Reg8::A, 0xFF);
+        cpu.regs.set_flag(Flag::Carry, true);
+
+        let op = Alu8Op {
+            op: Alu8::RotateRight,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Ignore,
+        };
+
+        cpu.execute_alu8(&op, &mut mem);
+
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xFF);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+    }
+
+    #[test]
+    fn decrement_half_carry_test() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        cpu.regs.set8(Reg8::A, 0);
+
+        let op = Alu8Op {
+            op: Alu8::Decrement,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Ignore,
+        };
+
+        cpu.execute_alu8(&op, &mut mem);
+
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xFF);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+    }
+
+    #[test]
+    fn push_and_pop() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        cpu.regs.set16(Reg16::AF, 0x12FF);
+        cpu.regs.set16(Reg16::BC, 0x13FF);
+        cpu.regs.set16(Reg16::DE, 0x14FF);
+        cpu.regs.set16(Reg16::HL, 0x15FF);
+        cpu.regs.set16(Reg16::SP, 0xFFFF);
+
+        let make_push = |reg| NextOp {
+            delay_cycles: 0,
+            pc_offset: 0,
+            op: Op::Push(reg),
+        };
+        let make_pop = |reg| NextOp {
+            delay_cycles: 0,
+            pc_offset: 0,
+            op: Op::Pop(reg),
+        };
+
+        cpu.execute_op(&mut mem, &make_push(Reg16::AF));
+        cpu.execute_op(&mut mem, &make_push(Reg16::BC));
+        cpu.execute_op(&mut mem, &make_push(Reg16::DE));
+        cpu.execute_op(&mut mem, &make_push(Reg16::HL));
+
+        cpu.execute_op(&mut mem, &make_pop(Reg16::AF));
+        cpu.execute_op(&mut mem, &make_pop(Reg16::BC));
+        cpu.execute_op(&mut mem, &make_pop(Reg16::DE));
+        cpu.execute_op(&mut mem, &make_pop(Reg16::HL));
+
+        // Bottom 4 bits of F read-only, always zero.
+        assert_eq!(cpu.regs.read16(Reg16::AF), 0x15F0);
+        assert_eq!(cpu.regs.read16(Reg16::BC), 0x14FF);
+        assert_eq!(cpu.regs.read16(Reg16::DE), 0x13FF);
+        assert_eq!(cpu.regs.read16(Reg16::HL), 0x12F0);
+    }
+
+    #[test]
+    fn swap() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        cpu.regs.set8(Reg8::C, 0x12);
+
+        let op = Alu8Op {
+            op: Alu8::Swap,
+            dest: Alu8Data::Reg(Reg8::C),
+            y: Alu8Data::Ignore,
+        };
+
+        cpu.execute_alu8(&op, &mut mem);
+
+        assert_eq!(cpu.regs.read8(Reg8::C), 0x21);
+    }
+
+    #[test]
+    fn decimal_adjust_after_add() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        let add = Alu8Op {
+            op: Alu8::Add,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Reg(Reg8::B),
+        };
+
+        let daa = Alu8Op {
+            op: Alu8::DecimalAdjust,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Ignore,
+        };
+
+        // Basic
+        cpu.regs.set8(Reg8::A, 0xAA);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x10);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+
+        // Add two BCD numbers, without half-carry, or needing to adjust
+        cpu.regs.set8(Reg8::A, 0x22);
+        cpu.regs.set8(Reg8::B, 0x22);
+        cpu.execute_alu8(&add, &mut mem);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x44);
+
+        // Add two BCD numbers, need to adjust
+        cpu.regs.set8(Reg8::A, 0x46);
+        cpu.regs.set8(Reg8::B, 0x46);
+        cpu.execute_alu8(&add, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x8C);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x92);
+
+        // Add two BCD numbers, have half-carry out of lower nibble
+        cpu.regs.set8(Reg8::A, 0x18);
+        cpu.regs.set8(Reg8::B, 0x18);
+        cpu.execute_alu8(&add, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x30);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x36);
+
+        // Add two BCD numbers, have carry out of upper nibble
+        cpu.regs.set8(Reg8::A, 0x70);
+        cpu.regs.set8(Reg8::B, 0x70);
+        cpu.execute_alu8(&add, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xE0);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x40);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+    }
+
+    #[test]
+    fn decimal_adjust_after_sub() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        let sub = Alu8Op {
+            op: Alu8::Sub,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Reg(Reg8::B),
+        };
+
+        let daa = Alu8Op {
+            op: Alu8::DecimalAdjust,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Ignore,
+        };
+
+        // Sub two BCD numbers, without half-carry, or needing to adjust
+        cpu.regs.set8(Reg8::A, 0x33);
+        cpu.regs.set8(Reg8::B, 0x11);
+        cpu.execute_alu8(&sub, &mut mem);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x22);
+
+        // Sub two BCD numbers, need to adjust lower nibble
+        cpu.regs.set8(Reg8::A, 0x20);
+        cpu.regs.set8(Reg8::B, 0x04);
+        cpu.execute_alu8(&sub, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x1C);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x16);
+
+        // Dec BCD numbers, need lots of carry
+        cpu.regs.set8(Reg8::A, 0x00);
+        cpu.regs.set8(Reg8::B, 0x01);
+        cpu.execute_alu8(
+            &Alu8Op {
+                op: Alu8::Decrement,
+                dest: Alu8Data::Reg(Reg8::A),
+                y: Alu8Data::Ignore,
+            },
+            &mut mem,
+        );
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xFF);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        cpu.execute_alu8(&daa, &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x99);
     }
 }
