@@ -23,10 +23,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn new() -> Self {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-
+    pub fn new(video_subsystem: sdl2::VideoSubsystem) -> Self {
         let window = video_subsystem
             .window("Gameboy Tile Viewer", MAX_X, MAX_Y)
             .position_centered()
@@ -43,7 +40,7 @@ impl Ppu {
         // Once every 70224 cycles, render.
         if self.cycle == 0 {
             self.render(mem);
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
+            //::std::thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
             self.canvas.present();
         }
         // Every 456 cycles advance one "line".
@@ -65,7 +62,10 @@ impl Ppu {
         // Which of the 8 possible Y tiles are being rendered?
         let mut y_tile_pos: i32 = 0;
 
-        // Render the background tileset
+        self.canvas.set_draw_color(pixels::Color::RGB(255, 0, 0));
+        self.canvas.clear();
+
+        // Render the backgr und tileset
         for addr in (0x8000..0x9000).step_by(2) {
             let upper_byte = mem.read(addr);
             let lower_byte = mem.read(addr + 1);

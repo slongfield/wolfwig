@@ -68,7 +68,8 @@ impl Debug {
     }
 
     pub fn step(&mut self) -> u16 {
-        self.pc = self.wolfwig.step();
+        self.wolfwig.step();
+        self.pc = self.wolfwig.pc();
         if self.pc != self.last_pc && self.run {
             if self.breakpoints.contains(&self.pc) {
                 self.run = false;

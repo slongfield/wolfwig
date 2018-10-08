@@ -3,6 +3,7 @@ use cpu::decode;
 use cpu::registers::{Flag, Reg16, Reg8, Registers};
 use mem::model::Memory;
 use std::mem;
+use std::process;
 
 struct NextOp {
     delay_cycles: usize,
@@ -25,6 +26,9 @@ pub struct LR25902 {
     pub regs: Registers,
     next_op: NextOp,
     cycle: usize,
+    interrupt_enable: bool,
+    halted: bool,
+    stopped: bool,
 }
 
 impl LR25902 {
@@ -33,6 +37,9 @@ impl LR25902 {
             regs: Registers::new(),
             next_op: NextOp::new(),
             cycle: 0,
+            interrupt_enable: false,
+            halted: false,
+            stopped: false,
         }
     }
 
@@ -48,14 +55,14 @@ impl LR25902 {
         }
     }
 
-    pub fn step(&mut self, mem: &mut Memory) -> u16 {
+    pub fn step(&mut self, mem: &mut Memory) -> bool {
         // TODO(slongfield): Handle interrupts.
         info!(
             "Executing cycle: {}, pc: {}",
             self.cycle,
             self.regs.read16(Reg16::PC)
         );
-        if self.next_op.delay_cycles == 0 {
+        if self.next_op.delay_cycles == 0 && !self.halted {
             let op = mem::replace(&mut self.next_op, NextOp::new());
             let pc = self.execute_op(mem, &op);
             let (op, size, cycles) = decode::decode(mem, pc as usize);
@@ -70,6 +77,10 @@ impl LR25902 {
             self.next_op.delay_cycles -= 1;
         }
         self.cycle += 1;
+        self.stopped
+    }
+
+    pub fn pc(&self) -> u16 {
         self.regs.read16(Reg16::PC)
     }
 
@@ -78,8 +89,28 @@ impl LR25902 {
         let mut next_pc = pc + op.pc_offset;
         match op.op {
             Op::Nop => {}
+            Op::EnableInterrupts => {
+                self.interrupt_enable = true;
+            }
+            Op::DisableInterrupts => {
+                self.interrupt_enable = false;
+            }
+            Op::Halt => {
+                // TODO(slongfield): Add halted bug. If interrupts are not enabled. Halt skips the
+                // next instruction.
+                self.halted = true;
+            }
+            Op::Stop => {
+                // TODO(slongfield): Should only stop until a button is pressed.
+                self.stopped = true
+            }
+
             Op::Set(reg, val) => self.regs.set8(reg, val),
             Op::SetWide(reg, val) => self.regs.set16(reg, val),
+            Op::SetAddr(reg, val) => {
+                let addr = self.regs.read16(reg);
+                mem.write(addr as usize, val);
+            }
             Op::SetIOC => {
                 let a = self.regs.read8(Reg8::A);
                 let c = self.regs.read8(Reg8::C);
@@ -172,6 +203,14 @@ impl LR25902 {
                 self.regs.set16(Reg16::SP, sp + 2);
                 next_pc = (pc_high << 8) | pc_low;
             }
+            Op::ReturnAndEnableInterrupts => {
+                let sp = self.regs.read16(Reg16::SP);
+                let pc_low = u16::from(mem.read(sp as usize));
+                let pc_high = u16::from(mem.read((sp + 1) as usize));
+                self.regs.set16(Reg16::SP, sp + 2);
+                self.interrupt_enable = true;
+                next_pc = (pc_high << 8) | pc_low;
+            }
             Op::ConditionalReturn(flag) => {
                 if self.regs.read_flag(flag) {
                     let sp = self.regs.read16(Reg16::SP);
@@ -217,6 +256,16 @@ impl LR25902 {
             Op::Jump(Address::Register16(reg)) => {
                 next_pc = self.regs.read16(reg);
             }
+
+            // This is basically the same as call.
+            Op::Reset(new_pc) => {
+                let sp = self.regs.read16(Reg16::SP);
+                mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
+                mem.write((sp - 2) as usize, (next_pc & 0xFF) as u8);
+                self.regs.set16(Reg16::SP, sp - 2);
+                next_pc = new_pc;
+            }
+
             Op::Alu8(ref alu_op) => self.execute_alu8(&alu_op, mem),
             Op::Alu16(ref alu_op) => self.execute_alu16(&alu_op),
             _ => error!(
@@ -226,7 +275,6 @@ impl LR25902 {
                 op.op
             ),
         }
-        //println!("{}", self.regs);
         self.regs.set16(Reg16::PC, next_pc);
         next_pc
     }
@@ -279,7 +327,8 @@ impl LR25902 {
             Alu8::ClearCarryFlag => (None, None, None, None, Some(false)),
             Alu8::Compare => {
                 let out = (x as i8).wrapping_sub(y as i8) as u8;
-                let carry = i16::from(x as i8) - i16::from(y as i8) < 0;
+                let compy = u16::from(!y) + 1;
+                let carry = compy.wrapping_add(u16::from(x)) <= 0xFF;
                 let h = i16::from((x & 0xF) as i8).wrapping_sub(i16::from((y & 0xF) as i8)) < 0;
                 (None, Some(out == 0), Some(false), Some(h), Some(carry))
             }
@@ -375,12 +424,17 @@ impl LR25902 {
             }
             Alu8::SetCarryFlag => (None, None, None, None, Some(true)),
             Alu8::ShiftLeftArithmetic => {
-                error!("No implementation for SLA");
-                (None, None, None, None, None)
+                let carry = (x & (1 << 7)) != 0;
+                let out = (u16::from(x) << 1) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
             Alu8::ShiftRightArithmetic => {
-                error!("No implementation for SRA");
-                (None, None, None, None, None)
+                let top_bit = u16::from(x & (1 << 7));
+                let carry = (x & 1) != 0;
+                let out = ((u16::from(x) >> 1) | top_bit) as u8;
+                let zero = out == 0;
+                (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
             Alu8::ShiftRightLogical => {
                 let out = x >> 1;
@@ -391,7 +445,8 @@ impl LR25902 {
             }
             Alu8::Sub => {
                 let out = (x as i8).wrapping_sub(y as i8) as u8;
-                let carry = i16::from(x as i8).wrapping_sub(i16::from(y as i8)) < 0;
+                let compy = u16::from(!y) + 1;
+                let carry = compy.wrapping_add(u16::from(x)) <= 0xFF;
                 let h = i16::from((x & 0xF) as i8).wrapping_sub(i16::from((y & 0xF) as i8)) < 0;
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(true), Some(h), Some(carry))
@@ -554,6 +609,54 @@ mod tests {
         assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
         assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
         assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+    }
+
+    #[test]
+    fn sub() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        let make_sub = |val| Alu8Op {
+            op: Alu8::Sub,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Imm(val),
+        };
+
+        // 0 - 0 == 0
+        cpu.regs.set8(Reg8::A, 0);
+        cpu.execute_alu8(&make_sub(0), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+
+        // 0 - 0x0F == 0xF1
+        cpu.regs.set8(Reg8::A, 0);
+        cpu.execute_alu8(&make_sub(0x0F), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xF1);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+
+        // 0 - 0xF0 == 0x10
+        cpu.regs.set8(Reg8::A, 0);
+        cpu.execute_alu8(&make_sub(0xF0), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0x10);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+
+        // 0xFF - 0xFF == 0
+        cpu.regs.set8(Reg8::A, 0xFF);
+        cpu.execute_alu8(&make_sub(0xFF), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
     }
 
@@ -721,6 +824,6 @@ mod tests {
         assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
         assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
         cpu.execute_alu8(&daa, &mut mem);
-        assert_eq!(cpu.regs.read8(Reg8::A), 0x99);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xF9);
     }
 }

@@ -54,6 +54,7 @@ pub enum Op {
     SetIO(u8), // Sets from A from 0xFF00+u8
     SetIOC,    // Sets A from OxFF00+C
     SetWide(Reg16, u16),
+    SetAddr(Reg16, u8),
     Stop,
     Store(Address, Reg8),
     StoreAndDecrement(Address, Reg8),
@@ -95,6 +96,7 @@ impl fmt::Display for Op {
             Op::SetIO(offset) => write!(f, "LD 0xFF00+0x{:X},A", offset),
             Op::SetIOC => write!(f, "LD (FF00+C),A"),
             Op::SetWide(dest, val) => write!(f, "LD {} 0x{:X}", dest, val),
+            Op::SetAddr(dest, val) => write!(f, "LD ({}) 0x{:X}", dest, val),
             Op::Stop => write!(f, "STOP"),
             Op::Store(addr, src) => write!(f, "LD ({}) {}", addr, src),
             Op::StoreAndDecrement(addr, src) => write!(f, "LD ({}-) {}", addr, src),
@@ -530,7 +532,7 @@ pub fn decode(rom: &Memory, pc: usize) -> (Op, usize, usize) {
     }
     match rom.read(pc) {
         0x00 => (Op::Nop, 1, 1),
-        0x01 => (Op::Stop, 2, 1),
+        0x10 => (Op::Stop, 2, 1),
         0x76 => (Op::Halt, 1, 1),
         0xF3 => (Op::DisableInterrupts, 1, 1),
         0xFB => (Op::EnableInterrupts, 1, 1),
@@ -721,7 +723,7 @@ fn decode_load(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x06 => (Op::Set(B, imm8), 2, 2),
         0x16 => (Op::Set(D, imm8), 2, 2),
         0x26 => (Op::Set(H, imm8), 2, 2),
-        0x36 => (Op::SetWide(HL, u16::from(imm8)), 2, 2),
+        0x36 => (Op::SetAddr(HL, imm8), 2, 2),
 
         0x08 => (Op::WideStore(Address::Immediate16(imm16), SP), 3, 5),
 

@@ -110,6 +110,7 @@ impl Memory {
                 // do, since that could be interesting.
                 info!("Write to unmapped memory region: {}", addr)
             }
+            0xFF50 => self.bootrom_disabled = val != 0,
             addr @ 0xFF00..=0xFF7F => self.io_regs[addr - 0xFF00] = val,
             addr @ 0xFF80..=0xFFFE => self.high_ram[addr - 0xFF80] = val,
             0xFFFF => self.interrupt_enable = val,
