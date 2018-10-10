@@ -454,14 +454,15 @@ impl LR25902 {
             Alu8::SubWithCarry => {
                 let carry_in = u8::from(self.regs.read_flag(Flag::Carry));
                 let out = (x as i8).wrapping_sub(y as i8).wrapping_sub(carry_in as i8) as u8;
-                let carry = i16::from(x as i8)
-                    .wrapping_sub(i16::from(y as i8))
-                    .wrapping_sub(i16::from(carry_in))
-                    < 0;
                 let h = i16::from((x & 0xF) as i8)
                     .wrapping_sub(i16::from((y & 0xF) as i8))
                     .wrapping_sub(i16::from(carry_in))
                     < 0;
+                let compy = u16::from(!y) + 1;
+                let carry = compy
+                    .wrapping_add(u16::from(x))
+                    .wrapping_sub(u16::from(carry_in))
+                    <= 0xFF;
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(true), Some(h), Some(carry))
             }
@@ -658,6 +659,48 @@ mod tests {
         assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
         assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+    }
+
+    #[test]
+    fn sbc() {
+        let mut cpu = LR25902::new();
+        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+
+        let make_sbc = |val| Alu8Op {
+            op: Alu8::SubWithCarry,
+            dest: Alu8Data::Reg(Reg8::A),
+            y: Alu8Data::Imm(val),
+        };
+
+        // 13 - 13, C = 0xFF, H, C
+        cpu.regs.set8(Reg8::A, 17);
+        cpu.regs.set_flag(Flag::Carry, true);
+        cpu.execute_alu8(&make_sbc(17), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xFF);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+
+        // 5 - 2, C = 2
+        cpu.regs.set8(Reg8::A, 5);
+        cpu.regs.set_flag(Flag::Carry, true);
+        cpu.execute_alu8(&make_sbc(2), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 2);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+
+        // 7F - 80, C = 0xFE C
+        cpu.regs.set8(Reg8::A, 0x7F);
+        cpu.regs.set_flag(Flag::Carry, true);
+        cpu.execute_alu8(&make_sbc(0x80), &mut mem);
+        assert_eq!(cpu.regs.read8(Reg8::A), 0xFE);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
     }
 
     #[test]
