@@ -519,8 +519,8 @@ impl LR25902 {
                 Alu16Data::Imm(data) => {
                     let x = self.regs.read16(op.dest) as i16;
                     let out = x.wrapping_add(data.into());
-                    let carry = (x as u32) + (data as u32) > 0xFFFF;
-                    let half = ((x & 0xFFF) as u32) + (data as u32) > 0xFFF;
+                    let carry = ((x & 0xFF) as u16) + ((data as u8) as u16) > 0xFF;
+                    let half = ((x & 0xF) as u16) + (((data as u8) & 0xF) as u16) > 0xF;
                     self.regs.set16(op.dest, out as u16);
                     (Some(false), Some(false), Some(half), Some(carry))
                 }

@@ -17,7 +17,7 @@ No features have been implemented.
 - [x] 01 - Special
 - [ ] 02 - Interrupts
 - [ ] 03 - Op SP, HL
-- [ ] 04 - Op R, IMM
+- [x] 04 - Op R, IMM
 - [ ] 05 - Op RP
 - [x] 06 - LD R, r.s
 - [x] 07 - Jr,Jp,Call,Ret,rst.s

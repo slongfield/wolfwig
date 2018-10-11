@@ -44,33 +44,8 @@ BANKS 2
 .bank 0 .slot 0
 .org $150
 
-ld sp,$FFFF
-inc sp
-nop
-ld bc,$0000
-push bc
-pop af
-nop
-
 ld sp,$0000
-dec sp
-nop
-ld bc,$0000
-push bc
-pop af
-nop
-
-ld sp,$1234
-ld sp,hl
-nop
-ld bc,$0000
-push bc
-pop af
-nop
-
-ld sp,$000F
-ld hl,$000F
-add hl,sp
+add sp,$00
 nop
 ld bc,$0000
 push bc
@@ -78,26 +53,41 @@ pop af
 nop
 
 ld sp,$00FF
-ld hl,$00FF
-add hl,sp
+add sp,$01
 nop
 ld bc,$0000
 push bc
 pop af
 nop
+
+ld sp,$00F0
+add sp,$10
+nop
+ld bc,$0000
+push bc
+pop af
+nop
+
+ld sp,$FFF0
+add sp,$10
+nop
+ld bc,$0000
+push bc
+pop af
+nop
+
 
 ld sp,$0FFF
-ld hl,$0FFF
-add hl,sp
+add sp,$01
 nop
 ld bc,$0000
 push bc
 pop af
 nop
 
-ld sp,$FFFF
-ld hl,$FFFF
-add hl,sp
+
+ld sp,$0001
+add sp,$0F ; wla-dx doesn't want to let me use $FF here. =/
 nop
 ld bc,$0000
 push bc
