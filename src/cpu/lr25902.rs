@@ -548,8 +548,9 @@ impl LR25902 {
                     let y = self.regs.read16(yreg) as i16;
                     let imm = op.imm;
                     self.regs.set16(op.dest, y.wrapping_add(imm as i16) as u16);
-                    let carry = (y as u32) + ((op.imm as u8) as u32) > 0xFFFF;
-                    let half = ((y & 0xFFF) as u32) + ((op.imm as u8) as u32) > 0xFFF;
+                    let carry = ((y & 0xFF) as u16) + ((op.imm as u8) as u16) > 0xFF;
+                    let half = ((y & 0xF) as u16) + (((op.imm as u8) & 0xF) as u16) > 0xF;
+
                     (Some(false), Some(false), Some(half), Some(carry))
                 } else {
                     error!("Invalid MoveAndAdd");

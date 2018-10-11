@@ -16,7 +16,7 @@ No features have been implemented.
 
 - [x] 01 - Special
 - [ ] 02 - Interrupts
-- [ ] 03 - Op SP, HL
+- [x] 03 - Op SP, HL
 - [x] 04 - Op R, IMM
 - [ ] 05 - Op RP
 - [x] 06 - LD R, r.s
