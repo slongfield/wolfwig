@@ -330,7 +330,7 @@ impl LR25902 {
                 let compy = u16::from(!y) + 1;
                 let carry = compy.wrapping_add(u16::from(x)) <= 0xFF;
                 let h = i16::from((x & 0xF) as i8).wrapping_sub(i16::from((y & 0xF) as i8)) < 0;
-                (None, Some(out == 0), Some(false), Some(h), Some(carry))
+                (None, Some(out == 0), Some(true), Some(h), Some(carry))
             }
             Alu8::Complement => {
                 let out = !x;
@@ -505,42 +505,73 @@ impl LR25902 {
     }
 
     fn execute_alu16(&mut self, op: &Alu16Op) {
-        match op.op {
+        let (zero, subtract, half_carry, carry) = match op.op {
             Alu16::Add => match op.y {
                 Alu16Data::Reg(yreg) => {
-                    let x = self.regs.read16(op.dest);
-                    let y = self.regs.read16(yreg);
+                    let x = self.regs.read16(op.dest) as i16;
+                    let y = self.regs.read16(yreg) as i16;
                     let out = x.wrapping_add(y);
-                    self.regs.set16(op.dest, out);
+                    let carry = ((x as u16) as u32) + ((y as u16) as u32) > 0xFFFF;
+                    let half = ((x & 0xFFF) as u32) + ((y & 0xFFF) as u32) > 0xFFF;
+                    self.regs.set16(op.dest, out as u16);
+                    (None, Some(false), Some(half), Some(carry))
                 }
                 Alu16Data::Imm(data) => {
-                    let x = self.regs.read16(op.dest);
+                    let x = self.regs.read16(op.dest) as i16;
                     let out = x.wrapping_add(data.into());
-                    self.regs.set16(op.dest, out);
+                    let carry = (x as u32) + (data as u32) > 0xFFFF;
+                    let half = ((x & 0xFFF) as u32) + (data as u32) > 0xFFF;
+                    self.regs.set16(op.dest, out as u16);
+                    (Some(false), Some(false), Some(half), Some(carry))
                 }
-                Alu16Data::Ignore => {}
+                Alu16Data::Ignore => (None, None, None, None),
             },
             Alu16::Decrement => {
                 let x = self.regs.read16(op.dest);
                 self.regs.set16(op.dest, x.wrapping_sub(1));
+                (None, None, None, None)
             }
             Alu16::Increment => {
                 let x = self.regs.read16(op.dest);
                 self.regs.set16(op.dest, x.wrapping_add(1));
+                (None, None, None, None)
             }
             Alu16::Move => {
                 if let Alu16Data::Reg(yreg) = op.y {
                     let y = self.regs.read16(yreg);
                     self.regs.set16(op.dest, y);
                 }
+                (None, None, None, None)
             }
             Alu16::MoveAndAdd => {
                 if let Alu16Data::Reg(yreg) = op.y {
-                    let y = self.regs.read16(yreg);
-                    self.regs.set16(op.dest, y.wrapping_add(op.imm.into()));
+                    let y = self.regs.read16(yreg) as i16;
+                    let imm = op.imm;
+                    self.regs.set16(op.dest, y.wrapping_add(imm as i16) as u16);
+                    let carry = (y as u32) + ((op.imm as u8) as u32) > 0xFFFF;
+                    let half = ((y & 0xFFF) as u32) + ((op.imm as u8) as u32) > 0xFFF;
+                    (Some(false), Some(false), Some(half), Some(carry))
+                } else {
+                    error!("Invalid MoveAndAdd");
+                    (None, None, None, None)
                 }
             }
-            Alu16::Unknown => {}
+            Alu16::Unknown => {
+                error!("Executing unknown ALU 16 Op!");
+                (None, None, None, None)
+            }
+        };
+        if let Some(zero) = zero {
+            self.regs.set_flag(Flag::Zero, zero);
+        }
+        if let Some(subtract) = subtract {
+            self.regs.set_flag(Flag::Subtract, subtract);
+        }
+        if let Some(half_carry) = half_carry {
+            self.regs.set_flag(Flag::HalfCarry, half_carry);
+        }
+        if let Some(carry) = carry {
+            self.regs.set_flag(Flag::Carry, carry);
         }
     }
 }
@@ -701,6 +732,42 @@ mod tests {
         assert_eq!(cpu.regs.read_flag(Flag::Subtract), true);
         assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+    }
+
+    #[test]
+    fn alu16_add() {
+        let mut cpu = LR25902::new();
+
+        cpu.regs.set16(Reg16::HL, 0x0F00);
+        cpu.regs.set16(Reg16::SP, 0x8000);
+        cpu.execute_alu16(&Alu16Op {
+            op: Alu16::Add,
+            dest: Reg16::HL,
+            y: Alu16Data::Reg(Reg16::SP),
+            imm: 0,
+        });
+
+        assert_eq!(cpu.regs.read16(Reg16::HL), 0x8F00);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Subtract), false);
+        assert_eq!(cpu.regs.read_flag(Flag::HalfCarry), false);
+        assert_eq!(cpu.regs.read_flag(Flag::Carry), false);
+    }
+
+    #[test]
+    fn alu16_move_and_add() {
+        let mut cpu = LR25902::new();
+
+        cpu.regs.set16(Reg16::HL, 0x4321);
+        cpu.regs.set16(Reg16::SP, 0x1234);
+        cpu.execute_alu16(&Alu16Op {
+            op: Alu16::MoveAndAdd,
+            dest: Reg16::HL,
+            y: Alu16Data::Reg(Reg16::SP),
+            imm: -1,
+        });
+
+        assert_eq!(cpu.regs.read16(Reg16::HL), 0x1233);
     }
 
     #[test]

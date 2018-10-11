@@ -411,7 +411,7 @@ impl fmt::Display for Alu8Op {
 #[derive(Debug)]
 pub enum Alu16Data {
     Reg(Reg16),
-    Imm(u8),
+    Imm(i8),
     Ignore,
 }
 
@@ -430,7 +430,7 @@ pub struct Alu16Op {
     pub op: Alu16,
     pub dest: Reg16,
     pub y: Alu16Data,
-    pub imm: u8,
+    pub imm: i8,
 }
 
 impl Alu16Op {
@@ -443,7 +443,7 @@ impl Alu16Op {
         }
     }
 
-    fn add_imm(dest: Reg16, y: u8) -> Self {
+    fn add_imm(dest: Reg16, y: i8) -> Self {
         Self {
             op: Alu16::Add,
             dest,
@@ -479,7 +479,7 @@ impl Alu16Op {
         }
     }
 
-    fn move_and_add(dest: Reg16, src: Reg16, imm: u8) -> Self {
+    fn move_and_add(dest: Reg16, src: Reg16, imm: i8) -> Self {
         Self {
             op: Alu16::MoveAndAdd,
             dest,
@@ -685,9 +685,9 @@ fn decode_alu16(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x2B => (Alu16Op::dec(HL), 1, 2),
         0x3B => (Alu16Op::dec(SP), 1, 2),
 
-        0xE8 => (Alu16Op::add_imm(SP, rom.read(pc + 1)), 2, 4),
+        0xE8 => (Alu16Op::add_imm(SP, rom.read(pc + 1) as i8), 2, 4),
 
-        0xF8 => (Alu16Op::move_and_add(HL, SP, rom.read(pc + 1)), 2, 3),
+        0xF8 => (Alu16Op::move_and_add(HL, SP, rom.read(pc + 1) as i8), 2, 3),
 
         0xF9 => (Alu16Op::move_reg(SP, HL), 1, 2),
 

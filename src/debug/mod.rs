@@ -14,7 +14,7 @@ pub struct Debug {
     cycle: usize,
     pc: u16,
     last_pc: u16,
-    run: bool,
+    run: usize,
     steps: u32,
     breakpoints: HashSet<u16>,
     verbose: bool,
@@ -25,7 +25,7 @@ const HELP: &str = "Available commands:
  [b]reakpoint -- Sets a breakpoint
  [i]nfo       -- lists breakpoins
  [d]elete     -- deletes a breakpoint
- [r]un        -- Run freely, until breakpoint.
+ [r]un n      -- Run freely, until breakpoint, n times. Default 1.
  [p]rint      -- register name prints specific register, 0xNNNN prints memory address,
                  blank prints all registers.
  [v]erbose   -- enable verbose printing of instruction stream
@@ -60,7 +60,7 @@ impl Debug {
             cycle: 0,
             pc: 0,
             last_pc: 0,
-            run: false,
+            run: 0,
             steps: 0,
             breakpoints: HashSet::new(),
             verbose: false,
@@ -70,9 +70,9 @@ impl Debug {
     pub fn step(&mut self) -> u16 {
         self.wolfwig.step();
         self.pc = self.wolfwig.pc();
-        if self.pc != self.last_pc && self.run {
+        if self.pc != self.last_pc && self.run != 0 {
             if self.breakpoints.contains(&self.pc) {
-                self.run = false;
+                self.run -= 1;
             } else if self.verbose {
                 let (op, _, _) = decode::decode(&self.wolfwig.mem, self.pc as usize);
                 println!(
@@ -81,7 +81,7 @@ impl Debug {
                 );
             }
         }
-        if self.pc != self.last_pc && !self.run {
+        if self.pc != self.last_pc && self.run == 0 {
             let (op, _, _) = decode::decode(&self.wolfwig.mem, self.pc as usize);
             println!(
                 "PC: 0x{:02X} Cycle: 0x{:04X} Op: {}",
@@ -107,7 +107,11 @@ impl Debug {
             let mut split = buf.trim_right().split(' ');
             match split.next() {
                 Some("r") | Some("run") => {
-                    self.run = true;
+                    if let Some(times) = next_as_int32(&mut split) {
+                        self.run = times as usize;
+                    } else {
+                        self.run = 1;
+                    }
                     break;
                 }
                 Some("n") | Some("next") | Some("") => {
