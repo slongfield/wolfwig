@@ -18,13 +18,13 @@ No features have been implemented.
 - [ ] 02 - Interrupts
 - [x] 03 - Op SP, HL
 - [x] 04 - Op R, IMM
-- [ ] 05 - Op RP
+- [x] 05 - Op RP
 - [x] 06 - LD R, r.s
 - [x] 07 - Jr,Jp,Call,Ret,rst.s
 - [x] 08 - Misc
-- [x] 09 - Op r,r.s
+- [ ] 09 - Op r,r.s
 - [x] 10 - bit ops
-- [ ] 11 - op a,(hl).s
+- [x] 11 - op a,(hl).s
 
 ## TODO
 

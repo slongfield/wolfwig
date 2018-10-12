@@ -324,7 +324,10 @@ impl LR25902 {
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(false), Some(true), Some(false))
             }
-            Alu8::ClearCarryFlag => (None, None, None, None, Some(false)),
+            Alu8::ClearCarryFlag => {
+                let carry = self.regs.read_flag(Flag::Carry);
+                (None, None, Some(false), Some(false), Some(!carry))
+            }
             Alu8::Compare => {
                 let out = (x as i8).wrapping_sub(y as i8) as u8;
                 let compy = u16::from(!y) + 1;
@@ -391,13 +394,20 @@ impl LR25902 {
                 let carry = ((1 << 8) & rot_data) != 0;
                 let low_bit = u8::from(((1 << 9) & rot_data) != 0);
                 let out = (((rot_data & 0xFF) as u8) | low_bit) as u8;
+                // Need to not do this for the CB variant of the instruction... fun.
+                /*let zero = if let Alu8Data::Reg(Reg8::A) = op.dest {
+                    false
+                } else {
+                    out == 0
+                };*/
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
             Alu8::RotateLeftCarry => {
                 let rot_data = u16::from(x) << 1;
+                let high_bit = (x & (1 << 7)) >> 7;
                 let carry = ((1 << 8) & rot_data) != 0;
-                let out = (rot_data & 0xFF) as u8;
+                let out = (rot_data & 0xFF) as u8 | high_bit;
                 let zero = out == 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
@@ -422,7 +432,7 @@ impl LR25902 {
                 let out = x | (1 << y);
                 (Some(out), None, None, None, None)
             }
-            Alu8::SetCarryFlag => (None, None, None, None, Some(true)),
+            Alu8::SetCarryFlag => (None, None, Some(false), Some(false), Some(true)),
             Alu8::ShiftLeftArithmetic => {
                 let carry = (x & (1 << 7)) != 0;
                 let out = (u16::from(x) << 1) as u8;
@@ -471,7 +481,7 @@ impl LR25902 {
                 let high_nibble = u16::from(x >> 4);
                 let out = ((low_nibble << 4) | high_nibble) as u8;
                 let zero = out == 0;
-                (Some(out), Some(zero), None, None, None)
+                (Some(out), Some(zero), Some(false), Some(false), Some(false))
             }
             Alu8::TestBit => {
                 let zero = x & (1 << y) == 0;
