@@ -16,6 +16,7 @@ mod joypad;
 mod mem;
 mod ppu;
 mod serial;
+mod timer;
 mod util;
 
 ///! Wolfwig is the main object in the emulator that owns everything.
