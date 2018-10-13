@@ -22,7 +22,7 @@ No features have been implemented.
 - [x] 06 - LD R, r.s
 - [x] 07 - Jr,Jp,Call,Ret,rst.s
 - [x] 08 - Misc
-- [ ] 09 - Op r,r.s
+- [x] 09 - Op r,r.s
 - [x] 10 - bit ops
 - [x] 11 - op a,(hl).s
 

@@ -388,43 +388,37 @@ impl LR25902 {
                 let out = x & !(1 << y);
                 (Some(out), None, None, None, None)
             }
-            Alu8::RotateLeft => {
+            Alu8::RotateLeft(clear_zero) => {
                 let carry_in = u16::from(self.regs.read_flag(Flag::Carry));
                 let rot_data = (u16::from(x) | (carry_in << 8)) << 1;
                 let carry = ((1 << 8) & rot_data) != 0;
                 let low_bit = u8::from(((1 << 9) & rot_data) != 0);
                 let out = (((rot_data & 0xFF) as u8) | low_bit) as u8;
-                // Need to not do this for the CB variant of the instruction... fun.
-                /*let zero = if let Alu8Data::Reg(Reg8::A) = op.dest {
-                    false
-                } else {
-                    out == 0
-                };*/
-                let zero = out == 0;
+                let zero = if clear_zero { false } else { out == 0 };
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
-            Alu8::RotateLeftCarry => {
+            Alu8::RotateLeftCarry(clear_zero) => {
                 let rot_data = u16::from(x) << 1;
                 let high_bit = (x & (1 << 7)) >> 7;
                 let carry = ((1 << 8) & rot_data) != 0;
                 let out = (rot_data & 0xFF) as u8 | high_bit;
-                let zero = out == 0;
+                let zero = if clear_zero { false } else { out == 0 };
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
-            Alu8::RotateRight => {
+            Alu8::RotateRight(clear_zero) => {
                 let carry_in = u16::from(self.regs.read_flag(Flag::Carry));
                 let rot_data = u16::from(x >> 1);
                 let carry = u16::from(x & 1);
                 let out = ((rot_data | (carry_in << 7)) & 0xFF) as u8;
-                let zero = out == 0;
+                let zero = if clear_zero { false } else { out == 0 };
                 let carry = carry != 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }
-            Alu8::RotateRightCarry => {
+            Alu8::RotateRightCarry(clear_zero) => {
                 let rot_data = u16::from(x) >> 1;
                 let carry = u16::from(x & 1);
                 let out = ((rot_data | (carry << 7)) & 0xFF) as u8;
-                let zero = out == 0;
+                let zero = if clear_zero { false } else { out == 0 };
                 let carry = carry != 0;
                 (Some(out), Some(zero), Some(false), Some(false), Some(carry))
             }

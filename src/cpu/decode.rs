@@ -139,10 +139,10 @@ pub enum Alu8 {
     Increment,
     Or,
     ResetBit,
-    RotateLeft,
-    RotateLeftCarry,
-    RotateRight,
-    RotateRightCarry,
+    RotateLeft(bool),
+    RotateLeftCarry(bool),
+    RotateRight(bool),
+    RotateRightCarry(bool),
     SetBit,
     SetCarryFlag,
     ShiftLeftArithmetic,
@@ -253,9 +253,41 @@ impl Alu8Op {
         }
     }
 
+    fn rotate_left_a() -> Self {
+        Self {
+            op: Alu8::RotateLeft(true),
+            dest: Alu8Data::Reg(A),
+            y: Alu8Data::Ignore,
+        }
+    }
+
+    fn rotate_left_carry_a() -> Self {
+        Self {
+            op: Alu8::RotateLeftCarry(true),
+            dest: Alu8Data::Reg(A),
+            y: Alu8Data::Ignore,
+        }
+    }
+
+    fn rotate_right_a() -> Self {
+        Self {
+            op: Alu8::RotateRight(true),
+            dest: Alu8Data::Reg(A),
+            y: Alu8Data::Ignore,
+        }
+    }
+
+    fn rotate_right_carry_a() -> Self {
+        Self {
+            op: Alu8::RotateRightCarry(true),
+            dest: Alu8Data::Reg(A),
+            y: Alu8Data::Ignore,
+        }
+    }
+
     fn rotate_left(dest: Alu8Data) -> Self {
         Self {
-            op: Alu8::RotateLeft,
+            op: Alu8::RotateLeft(false),
             dest,
             y: Alu8Data::Ignore,
         }
@@ -263,7 +295,7 @@ impl Alu8Op {
 
     fn rotate_left_carry(dest: Alu8Data) -> Self {
         Self {
-            op: Alu8::RotateLeftCarry,
+            op: Alu8::RotateLeftCarry(false),
             dest,
             y: Alu8Data::Ignore,
         }
@@ -271,7 +303,7 @@ impl Alu8Op {
 
     fn rotate_right(dest: Alu8Data) -> Self {
         Self {
-            op: Alu8::RotateRight,
+            op: Alu8::RotateRight(false),
             dest,
             y: Alu8Data::Ignore,
         }
@@ -279,7 +311,7 @@ impl Alu8Op {
 
     fn rotate_right_carry(dest: Alu8Data) -> Self {
         Self {
-            op: Alu8::RotateRightCarry,
+            op: Alu8::RotateRightCarry(false),
             dest,
             y: Alu8Data::Ignore,
         }
@@ -389,10 +421,10 @@ impl fmt::Display for Alu8Op {
             Alu8::Increment => write!(f, "INC {}", self.dest),
             Alu8::Or => write!(f, "OR {},{}", self.dest, self.y),
             Alu8::ResetBit => write!(f, "RES {},{}", self.y, self.dest),
-            Alu8::RotateLeft => write!(f, "RL {}", self.dest),
-            Alu8::RotateLeftCarry => write!(f, "RLC {}", self.dest),
-            Alu8::RotateRight => write!(f, "RR {}", self.dest),
-            Alu8::RotateRightCarry => write!(f, "RRC {}", self.dest),
+            Alu8::RotateLeft(_) => write!(f, "RL {}", self.dest),
+            Alu8::RotateLeftCarry(_) => write!(f, "RLC {}", self.dest),
+            Alu8::RotateRight(_) => write!(f, "RR {}", self.dest),
+            Alu8::RotateRightCarry(_) => write!(f, "RRC {}", self.dest),
             Alu8::SetBit => write!(f, "SET {},{}", self.y, self.dest),
             Alu8::SetCarryFlag => write!(f, "SCF"),
             Alu8::ShiftLeftArithmetic => write!(f, "SLA {}", self.dest),
@@ -563,10 +595,10 @@ fn decode_alu8(rom: &Memory, pc: usize) -> Option<(Op, usize, usize)> {
         0x2D => (Alu8Op::decrement(Alu8Data::Reg(L)), 1, 1),
         0x3D => (Alu8Op::decrement(Alu8Data::Reg(A)), 1, 1),
 
-        0x07 => (Alu8Op::rotate_left_carry(Alu8Data::Reg(A)), 1, 1),
-        0x0F => (Alu8Op::rotate_right_carry(Alu8Data::Reg(A)), 1, 1),
-        0x17 => (Alu8Op::rotate_left(Alu8Data::Reg(A)), 1, 1),
-        0x1F => (Alu8Op::rotate_right(Alu8Data::Reg(A)), 1, 1),
+        0x07 => (Alu8Op::rotate_left_carry_a(), 1, 1),
+        0x0F => (Alu8Op::rotate_right_carry_a(), 1, 1),
+        0x17 => (Alu8Op::rotate_left_a(), 1, 1),
+        0x1F => (Alu8Op::rotate_right_a(), 1, 1),
 
         0x27 => (Alu8Op::decimal_adjust(), 1, 1),
         0x2F => (Alu8Op::complement(), 1, 1),
