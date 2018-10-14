@@ -1,9 +1,8 @@
 use self::decode::{Address, Alu16, Alu16Data, Alu16Op, Alu8, Alu8Data, Alu8Op, Op};
 use cpu::decode;
 use cpu::registers::{Flag, Reg16, Reg8, Registers};
-use mem::model::Memory;
+use peripherals::mem::model::Memory;
 use std::mem;
-use std::process;
 
 struct NextOp {
     delay_cycles: usize,
@@ -65,7 +64,7 @@ impl LR25902 {
         if self.next_op.delay_cycles == 0 && !self.halted {
             let op = mem::replace(&mut self.next_op, NextOp::new());
             let pc = self.execute_op(mem, &op);
-            let (op, size, cycles) = decode::decode(mem, pc as usize);
+            let (op, size, cycles) = decode::decode(mem, pc);
             self.next_op.op = op;
             self.next_op.pc_offset = size as u16;
             if cycles > 0 {
@@ -109,88 +108,86 @@ impl LR25902 {
             Op::SetWide(reg, val) => self.regs.set16(reg, val),
             Op::SetAddr(reg, val) => {
                 let addr = self.regs.read16(reg);
-                mem.write(addr as usize, val);
+                mem.write(addr, val);
             }
             Op::SetIOC => {
                 let a = self.regs.read8(Reg8::A);
                 let c = self.regs.read8(Reg8::C);
-                mem.write(0xFF00 + c as usize, a);
+                mem.write(0xFF00 + c, a);
             }
             Op::SetIO(addr) => {
                 let a = self.regs.read8(Reg8::A);
-                mem.write(0xFF00 + addr as usize, a);
+                mem.write(0xFF00 + addr, a);
             }
             Op::ReadIO(addr) => {
-                let data = mem.read(0xFF00 + addr as usize);
+                let data = mem.read(0xFF00 + addr);
                 self.regs.set8(Reg8::A, data)
             }
             Op::ReadIOC => {
                 let addr = self.regs.read8(Reg8::C);
-                let data = mem.read(0xFF00 + addr as usize);
+                let data = mem.read(0xFF00 + addr);
                 self.regs.set8(Reg8::A, data)
             }
             Op::Store(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
                 let addr = self.regs.read16(addr_reg);
-                mem.write(addr as usize, data);
+                mem.write(addr, data);
             }
             Op::Store(Address::Immediate16(addr), data_reg) => {
                 let data = self.regs.read8(data_reg);
-                mem.write(addr as usize, data);
+                mem.write(addr, data);
             }
             Op::WideStore(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read16(data_reg);
                 let addr = self.regs.read16(addr_reg);
-                mem.write(addr as usize, data as u8);
-                mem.write((addr + 1) as usize, (data >> 8) as u8);
+                mem.write(addr, data as u8);
+                mem.write((addr + 1), (data >> 8) as u8);
             }
             Op::WideStore(Address::Immediate16(addr), data_reg) => {
                 let data = self.regs.read16(data_reg);
-                mem.write(addr as usize, data as u8);
-                mem.write((addr + 1) as usize, (data >> 8) as u8);
+                mem.write(addr, data as u8);
+                mem.write((addr + 1), (data >> 8) as u8);
             }
             Op::StoreAndDecrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
                 let addr = self.regs.read16(addr_reg);
-                mem.write(addr as usize, data);
+                mem.write(addr, data);
                 self.regs.set16(addr_reg, addr.wrapping_sub(1));
             }
             Op::StoreAndIncrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
                 let addr = self.regs.read16(addr_reg);
-                mem.write(addr as usize, data);
+                mem.write(addr, data);
                 self.regs.set16(addr_reg, addr.wrapping_add(1));
             }
             Op::Load(reg, Address::Register16(addr_reg)) => {
                 let addr = self.regs.read16(addr_reg);
-                self.regs.set8(reg, mem.read(addr as usize))
+                self.regs.set8(reg, mem.read(addr))
             }
-            Op::Load(reg, Address::Immediate16(addr)) => {
-                self.regs.set8(reg, mem.read(addr as usize))
-            }
+            Op::Load(reg, Address::Immediate16(addr)) => self.regs.set8(reg, mem.read(addr)),
             Op::LoadAndIncrement(reg, Address::Register16(addr_reg)) => {
                 let addr = self.regs.read16(addr_reg);
-                self.regs.set8(reg, mem.read(addr as usize));
+                self.regs.set8(reg, mem.read(addr));
                 self.regs.set16(addr_reg, addr.wrapping_add(1));
             }
             Op::LoadAndDecrement(reg, Address::Register16(addr_reg)) => {
                 let addr = self.regs.read16(addr_reg);
-                self.regs.set8(reg, mem.read(addr as usize));
+                self.regs.set8(reg, mem.read(addr));
                 self.regs.set16(addr_reg, addr.wrapping_sub(1));
             }
 
             Op::Call(new_pc) => {
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
-                mem.write((sp - 2) as usize, (next_pc & 0xFF) as u8);
+                mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
+                mem.write((sp - 2), (next_pc & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
                 next_pc = new_pc;
             }
             Op::ConditionalCall(flag, new_pc) => {
                 if self.regs.read_flag(flag) {
                     let sp = self.regs.read16(Reg16::SP);
-                    mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
-                    mem.write((sp - 2) as usize, (next_pc & 0xFF) as u8);
+                    mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
+                    mem.write((sp - 2), (next_pc & 0xFF) as u8);
                     self.regs.set16(Reg16::SP, sp - 2);
                     next_pc = new_pc;
                 }
@@ -198,15 +195,15 @@ impl LR25902 {
 
             Op::Return => {
                 let sp = self.regs.read16(Reg16::SP);
-                let pc_low = u16::from(mem.read(sp as usize));
-                let pc_high = u16::from(mem.read((sp + 1) as usize));
+                let pc_low = u16::from(mem.read(sp));
+                let pc_high = u16::from(mem.read((sp + 1)));
                 self.regs.set16(Reg16::SP, sp + 2);
                 next_pc = (pc_high << 8) | pc_low;
             }
             Op::ReturnAndEnableInterrupts => {
                 let sp = self.regs.read16(Reg16::SP);
-                let pc_low = u16::from(mem.read(sp as usize));
-                let pc_high = u16::from(mem.read((sp + 1) as usize));
+                let pc_low = u16::from(mem.read(sp));
+                let pc_high = u16::from(mem.read((sp + 1)));
                 self.regs.set16(Reg16::SP, sp + 2);
                 self.interrupt_enable = true;
                 next_pc = (pc_high << 8) | pc_low;
@@ -214,8 +211,8 @@ impl LR25902 {
             Op::ConditionalReturn(flag) => {
                 if self.regs.read_flag(flag) {
                     let sp = self.regs.read16(Reg16::SP);
-                    let pc_low = u16::from(mem.read(sp as usize));
-                    let pc_high = u16::from(mem.read((sp + 1) as usize));
+                    let pc_low = u16::from(mem.read(sp));
+                    let pc_high = u16::from(mem.read((sp + 1)));
                     self.regs.set16(Reg16::SP, sp + 2);
                     next_pc = (pc_high << 8) | pc_low;
                 }
@@ -228,14 +225,14 @@ impl LR25902 {
             Op::Push(reg) => {
                 let data = self.regs.read16(reg);
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1) as usize, ((data >> 8) & 0xFF) as u8);
-                mem.write((sp - 2) as usize, (data & 0xFF) as u8);
+                mem.write((sp - 1), ((data >> 8) & 0xFF) as u8);
+                mem.write((sp - 2), (data & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
             }
             Op::Pop(reg) => {
                 let sp = self.regs.read16(Reg16::SP);
-                let data_low = u16::from(mem.read(sp as usize));
-                let data_high = u16::from(mem.read((sp + 1) as usize));
+                let data_low = u16::from(mem.read(sp));
+                let data_high = u16::from(mem.read((sp + 1)));
                 self.regs.set16(Reg16::SP, sp + 2);
                 self.regs.set16(reg, (data_high << 8) | data_low);
             }
@@ -260,8 +257,8 @@ impl LR25902 {
             // This is basically the same as call.
             Op::Reset(new_pc) => {
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1) as usize, ((next_pc >> 8) & 0xFF) as u8);
-                mem.write((sp - 2) as usize, (next_pc & 0xFF) as u8);
+                mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
+                mem.write((sp - 2), (next_pc & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
                 next_pc = new_pc;
             }
@@ -285,7 +282,7 @@ impl LR25902 {
             Alu8Data::Imm(data) => *data,
             Alu8Data::Addr(reg16) => {
                 let addr = self.regs.read16(*reg16);
-                mem.read(addr as usize)
+                mem.read(addr)
             }
             Alu8Data::Ignore => 0xFF,
         }
@@ -296,7 +293,7 @@ impl LR25902 {
             Alu8Data::Reg(reg) => self.regs.set8(*reg, val),
             Alu8Data::Addr(reg16) => {
                 let addr = self.regs.read16(*reg16);
-                mem.write(addr as usize, val);
+                mem.write(addr, val);
             }
             other => error!("Unexpected alu8 set: {:?}", other),
         }
@@ -593,7 +590,7 @@ mod tests {
         cpu.regs.set8(Reg8::A, 0xFF);
 
         let op = Alu8Op {
-            op: Alu8::RotateLeft,
+            op: Alu8::RotateLeft(false),
             dest: Alu8Data::Reg(Reg8::A),
             y: Alu8Data::Ignore,
         };
@@ -602,6 +599,7 @@ mod tests {
 
         assert_eq!(cpu.regs.read8(Reg8::A), (0xFF << 1) & 0xFF);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
 
         cpu.execute_alu8(&op, &mut mem);
         assert_eq!(cpu.regs.read8(Reg8::A), 0b1111_1101);
@@ -616,7 +614,7 @@ mod tests {
         cpu.regs.set_flag(Flag::Carry, true);
 
         let op = Alu8Op {
-            op: Alu8::RotateRight,
+            op: Alu8::RotateRight(true),
             dest: Alu8Data::Reg(Reg8::A),
             y: Alu8Data::Ignore,
         };
@@ -625,6 +623,7 @@ mod tests {
 
         assert_eq!(cpu.regs.read8(Reg8::A), 0xFF);
         assert_eq!(cpu.regs.read_flag(Flag::Carry), true);
+        assert_eq!(cpu.regs.read_flag(Flag::Zero), false);
     }
 
     #[test]
