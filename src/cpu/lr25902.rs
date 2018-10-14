@@ -134,7 +134,7 @@ impl LR25902 {
             Op::WideStore(Address::Immediate16(addr), data_reg) => {
                 let data = self.regs.read16(data_reg);
                 mem.write(addr, data as u8);
-                mem.write(addr.wrapping_add(1), (data >> 8) as u8);
+                mem.write(addr + 1, (data >> 8) as u8);
             }
             Op::StoreAndDecrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
@@ -500,8 +500,9 @@ impl LR25902 {
                     let x = self.regs.read16(op.dest) as i16;
                     let y = self.regs.read16(yreg) as i16;
                     let out = x.wrapping_add(y);
-                    let carry = ((x as u16) as u32) + ((y as u16) as u32) > 0xFFFF;
-                    let half = ((x & 0xFFF) as u32) + ((y & 0xFFF) as u32) > 0xFFF;
+                    let carry = u32::from(x as u16) + u32::from(y as u16) > 0xFFFF;
+                    let half =
+                        u32::from((x & 0xFFF) as u16) + u32::from((y & 0xFFF) as u16) > 0xFFF;
                     self.regs.set16(op.dest, out as u16);
                     (None, Some(false), Some(half), Some(carry))
                 }

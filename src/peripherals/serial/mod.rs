@@ -30,7 +30,7 @@ impl Serial {
                 // TODO(slongfield): Handle error.
                 sender.send(self.data).unwrap();
             }
-            self.control = self.control & !Self::START;
+            self.control &= !Self::START;
             // TODO(slongfield): Two-way communication. Normally data is shifted in here from the
             // external source as its shifted out over the course of 8 cycles.
             self.data = 0;

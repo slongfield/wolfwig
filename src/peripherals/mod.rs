@@ -101,7 +101,7 @@ impl Peripherals {
             addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
             addr @ 0xFF40..=0xFF4B => self.ppu.write(addr, val),
             addr @ 0xFF50 => self.mem.write(addr, val),
-            0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFFF3 => {
+            0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                 info!("Write to unmapped I/O reg!")
             }
             // High RAM.
@@ -131,7 +131,7 @@ impl Peripherals {
             addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
             addr @ 0xFF40..=0xFF4B => self.ppu.read(addr),
             addr @ 0xFF50 => self.mem.read(addr),
-            0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFFF3 => {
+            0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                 info!("Read from unmapped I/O reg!");
                 0
             }
