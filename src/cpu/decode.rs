@@ -1,4 +1,4 @@
-use peripherals::mem::model::Memory;
+use peripherals::Peripherals;
 use std::fmt;
 
 use cpu::registers::Flag::{self, Carry, NotCarry, NotZero, Zero};
@@ -549,7 +549,7 @@ impl fmt::Display for Alu16Op {
 
 ///! Decode takes the ROM and current PC, and returns the Op a that PC, as well as the number of
 ///! bytes in that op, and the number of cycles it runs for.
-pub fn decode(rom: &Memory, pc: u16) -> (Op, usize, usize) {
+pub fn decode(rom: &Peripherals, pc: u16) -> (Op, usize, usize) {
     if let Some((op, size, time)) = decode_alu8(&rom, pc) {
         return (op, size, time);
     }
@@ -574,7 +574,7 @@ pub fn decode(rom: &Memory, pc: u16) -> (Op, usize, usize) {
 }
 
 ///! Decode ALU operations.
-fn decode_alu8(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
+fn decode_alu8(rom: &Peripherals, pc: u16) -> Option<(Op, usize, usize)> {
     let imm8 = rom.read(pc + 1);
     let inst = match rom.read(pc) {
         0x04 => (Alu8Op::increment(Alu8Data::Reg(B)), 1, 1),
@@ -700,12 +700,12 @@ fn decode_alu8(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode ALU operations.
-fn decode_alu16(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
+fn decode_alu16(rom: &Peripherals, pc: u16) -> Option<(Op, usize, usize)> {
     let inst = match rom.read(pc) {
-        0x03 => (Alu16Op::inc(BC), 1, 1),
-        0x13 => (Alu16Op::inc(DE), 1, 1),
-        0x23 => (Alu16Op::inc(HL), 1, 1),
-        0x33 => (Alu16Op::inc(SP), 1, 1),
+        0x03 => (Alu16Op::inc(BC), 1, 2),
+        0x13 => (Alu16Op::inc(DE), 1, 2),
+        0x23 => (Alu16Op::inc(HL), 1, 2),
+        0x33 => (Alu16Op::inc(SP), 1, 2),
 
         0x09 => (Alu16Op::add(HL, BC), 1, 2),
         0x19 => (Alu16Op::add(HL, DE), 1, 2),
@@ -738,7 +738,7 @@ fn decode_alu16(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode move, load, and store operations.
-fn decode_load(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
+fn decode_load(rom: &Peripherals, pc: u16) -> Option<(Op, usize, usize)> {
     let imm16 = util::bytes_to_u16(&[rom.read(pc + 2), rom.read(pc + 1)]);
     let imm8 = rom.read(pc + 1);
     let inst = match rom.read(pc) {
@@ -866,7 +866,7 @@ fn decode_load(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
 }
 
 ///! Decode ALU operations.
-fn decode_jump(rom: &Memory, pc: u16) -> Option<(Op, usize, usize)> {
+fn decode_jump(rom: &Peripherals, pc: u16) -> Option<(Op, usize, usize)> {
     let dest16 = util::bytes_to_u16(&[rom.read(pc + 2), rom.read(pc + 1)]);
     let relative_dest = (((pc + 2) as isize) + ((rom.read(pc + 1) as i8) as isize)) as u16;
     let inst = match rom.read(pc) {

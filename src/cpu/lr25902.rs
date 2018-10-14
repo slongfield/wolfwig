@@ -1,7 +1,7 @@
 use self::decode::{Address, Alu16, Alu16Data, Alu16Op, Alu8, Alu8Data, Alu8Op, Op};
 use cpu::decode;
 use cpu::registers::{Flag, Reg16, Reg8, Registers};
-use peripherals::mem::model::Memory;
+use peripherals::Peripherals;
 use std::mem;
 
 struct NextOp {
@@ -42,19 +42,7 @@ impl LR25902 {
         }
     }
 
-    pub fn dump_instructions(&self, rom: &Memory, start_pc: usize, end_pc: usize) {
-        let mut pc = start_pc;
-        loop {
-            let (op, size, _) = decode::decode(rom, pc);
-            println!("0x{:x}: {} ", pc, op);
-            pc += size;
-            if pc >= end_pc {
-                break;
-            }
-        }
-    }
-
-    pub fn step(&mut self, mem: &mut Memory) -> bool {
+    pub fn step(&mut self, mem: &mut Peripherals) -> bool {
         // TODO(slongfield): Handle interrupts.
         info!(
             "Executing cycle: {}, pc: {}",
@@ -83,7 +71,7 @@ impl LR25902 {
         self.regs.read16(Reg16::PC)
     }
 
-    fn execute_op(&mut self, mem: &mut Memory, op: &NextOp) -> u16 {
+    fn execute_op(&mut self, mem: &mut Peripherals, op: &NextOp) -> u16 {
         let pc = self.regs.read16(Reg16::PC);
         let mut next_pc = pc + op.pc_offset;
         match op.op {
@@ -113,19 +101,19 @@ impl LR25902 {
             Op::SetIOC => {
                 let a = self.regs.read8(Reg8::A);
                 let c = self.regs.read8(Reg8::C);
-                mem.write(0xFF00 + c, a);
+                mem.write(0xFF00 + u16::from(c), a);
             }
             Op::SetIO(addr) => {
                 let a = self.regs.read8(Reg8::A);
-                mem.write(0xFF00 + addr, a);
+                mem.write(0xFF00 + u16::from(addr), a);
             }
             Op::ReadIO(addr) => {
-                let data = mem.read(0xFF00 + addr);
+                let data = mem.read(0xFF00 + u16::from(addr));
                 self.regs.set8(Reg8::A, data)
             }
             Op::ReadIOC => {
                 let addr = self.regs.read8(Reg8::C);
-                let data = mem.read(0xFF00 + addr);
+                let data = mem.read(0xFF00 + u16::from(addr));
                 self.regs.set8(Reg8::A, data)
             }
             Op::Store(Address::Register16(addr_reg), data_reg) => {
@@ -141,12 +129,12 @@ impl LR25902 {
                 let data = self.regs.read16(data_reg);
                 let addr = self.regs.read16(addr_reg);
                 mem.write(addr, data as u8);
-                mem.write((addr + 1), (data >> 8) as u8);
+                mem.write(addr.wrapping_add(1), (data >> 8) as u8);
             }
             Op::WideStore(Address::Immediate16(addr), data_reg) => {
                 let data = self.regs.read16(data_reg);
                 mem.write(addr, data as u8);
-                mem.write((addr + 1), (data >> 8) as u8);
+                mem.write(addr.wrapping_add(1), (data >> 8) as u8);
             }
             Op::StoreAndDecrement(Address::Register16(addr_reg), data_reg) => {
                 let data = self.regs.read8(data_reg);
@@ -178,16 +166,16 @@ impl LR25902 {
 
             Op::Call(new_pc) => {
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
-                mem.write((sp - 2), (next_pc & 0xFF) as u8);
+                mem.write(sp - 1, ((next_pc >> 8) & 0xFF) as u8);
+                mem.write(sp - 2, (next_pc & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
                 next_pc = new_pc;
             }
             Op::ConditionalCall(flag, new_pc) => {
                 if self.regs.read_flag(flag) {
                     let sp = self.regs.read16(Reg16::SP);
-                    mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
-                    mem.write((sp - 2), (next_pc & 0xFF) as u8);
+                    mem.write(sp - 1, ((next_pc >> 8) & 0xFF) as u8);
+                    mem.write(sp - 2, (next_pc & 0xFF) as u8);
                     self.regs.set16(Reg16::SP, sp - 2);
                     next_pc = new_pc;
                 }
@@ -196,14 +184,14 @@ impl LR25902 {
             Op::Return => {
                 let sp = self.regs.read16(Reg16::SP);
                 let pc_low = u16::from(mem.read(sp));
-                let pc_high = u16::from(mem.read((sp + 1)));
+                let pc_high = u16::from(mem.read(sp + 1));
                 self.regs.set16(Reg16::SP, sp + 2);
                 next_pc = (pc_high << 8) | pc_low;
             }
             Op::ReturnAndEnableInterrupts => {
                 let sp = self.regs.read16(Reg16::SP);
                 let pc_low = u16::from(mem.read(sp));
-                let pc_high = u16::from(mem.read((sp + 1)));
+                let pc_high = u16::from(mem.read(sp + 1));
                 self.regs.set16(Reg16::SP, sp + 2);
                 self.interrupt_enable = true;
                 next_pc = (pc_high << 8) | pc_low;
@@ -212,7 +200,7 @@ impl LR25902 {
                 if self.regs.read_flag(flag) {
                     let sp = self.regs.read16(Reg16::SP);
                     let pc_low = u16::from(mem.read(sp));
-                    let pc_high = u16::from(mem.read((sp + 1)));
+                    let pc_high = u16::from(mem.read(sp + 1));
                     self.regs.set16(Reg16::SP, sp + 2);
                     next_pc = (pc_high << 8) | pc_low;
                 }
@@ -225,14 +213,14 @@ impl LR25902 {
             Op::Push(reg) => {
                 let data = self.regs.read16(reg);
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1), ((data >> 8) & 0xFF) as u8);
-                mem.write((sp - 2), (data & 0xFF) as u8);
+                mem.write(sp - 1, ((data >> 8) & 0xFF) as u8);
+                mem.write(sp - 2, (data & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
             }
             Op::Pop(reg) => {
                 let sp = self.regs.read16(Reg16::SP);
                 let data_low = u16::from(mem.read(sp));
-                let data_high = u16::from(mem.read((sp + 1)));
+                let data_high = u16::from(mem.read(sp + 1));
                 self.regs.set16(Reg16::SP, sp + 2);
                 self.regs.set16(reg, (data_high << 8) | data_low);
             }
@@ -257,8 +245,8 @@ impl LR25902 {
             // This is basically the same as call.
             Op::Reset(new_pc) => {
                 let sp = self.regs.read16(Reg16::SP);
-                mem.write((sp - 1), ((next_pc >> 8) & 0xFF) as u8);
-                mem.write((sp - 2), (next_pc & 0xFF) as u8);
+                mem.write(sp - 1, ((next_pc >> 8) & 0xFF) as u8);
+                mem.write(sp - 2, (next_pc & 0xFF) as u8);
                 self.regs.set16(Reg16::SP, sp - 2);
                 next_pc = new_pc;
             }
@@ -276,7 +264,7 @@ impl LR25902 {
         next_pc
     }
 
-    fn get_alu8_data(&mut self, data: &Alu8Data, mem: &mut Memory) -> u8 {
+    fn get_alu8_data(&mut self, data: &Alu8Data, mem: &mut Peripherals) -> u8 {
         match data {
             Alu8Data::Reg(reg) => self.regs.read8(*reg),
             Alu8Data::Imm(data) => *data,
@@ -288,7 +276,7 @@ impl LR25902 {
         }
     }
 
-    fn set_alu8_data(&mut self, dest: &Alu8Data, val: u8, mem: &mut Memory) {
+    fn set_alu8_data(&mut self, dest: &Alu8Data, val: u8, mem: &mut Peripherals) {
         match dest {
             Alu8Data::Reg(reg) => self.regs.set8(*reg, val),
             Alu8Data::Addr(reg16) => {
@@ -299,7 +287,7 @@ impl LR25902 {
         }
     }
 
-    fn execute_alu8(&mut self, op: &Alu8Op, mem: &mut Memory) {
+    fn execute_alu8(&mut self, op: &Alu8Op, mem: &mut Peripherals) {
         let x = self.get_alu8_data(&op.dest, mem);
         let y = self.get_alu8_data(&op.y, mem);
         let (out, zero, subtract, half_carry, carry) = match op.op {
@@ -585,7 +573,7 @@ mod tests {
     #[test]
     fn rotate_left_carry() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0xFF);
 
@@ -608,7 +596,7 @@ mod tests {
     #[test]
     fn rotate_right() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0xFF);
         cpu.regs.set_flag(Flag::Carry, true);
@@ -629,7 +617,7 @@ mod tests {
     #[test]
     fn decrement_half_carry_test() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0);
 
@@ -651,7 +639,7 @@ mod tests {
     #[test]
     fn sub() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         let make_sub = |val| Alu8Op {
             op: Alu8::Sub,
@@ -699,7 +687,7 @@ mod tests {
     #[test]
     fn sbc() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         let make_sbc = |val| Alu8Op {
             op: Alu8::SubWithCarry,
@@ -777,7 +765,7 @@ mod tests {
     #[test]
     fn push_and_pop() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         cpu.regs.set16(Reg16::AF, 0x12FF);
         cpu.regs.set16(Reg16::BC, 0x13FF);
@@ -816,7 +804,7 @@ mod tests {
     #[test]
     fn swap() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::C, 0x12);
 
@@ -834,7 +822,7 @@ mod tests {
     #[test]
     fn decimal_adjust_after_add() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         let add = Alu8Op {
             op: Alu8::Add,
@@ -892,7 +880,7 @@ mod tests {
     #[test]
     fn decimal_adjust_after_sub() {
         let mut cpu = LR25902::new();
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Peripherals::new_fake();
 
         let sub = Alu8Op {
             op: Alu8::Sub,

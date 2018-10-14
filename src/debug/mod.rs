@@ -74,7 +74,7 @@ impl Debug {
             if self.breakpoints.contains(&self.pc) {
                 self.run -= 1;
             } else if self.verbose {
-                let (op, _, _) = decode::decode(&self.wolfwig.peripherals.mem, self.pc);
+                let (op, _, _) = decode::decode(&self.wolfwig.peripherals, self.pc);
                 println!(
                     "PC: 0x{:02X} Cycle: 0x{:04X} Op: {}",
                     self.pc, self.cycle, op
@@ -82,7 +82,7 @@ impl Debug {
             }
         }
         if self.pc != self.last_pc && self.run == 0 {
-            let (op, _, _) = decode::decode(&self.wolfwig.peripherals.mem, self.pc);
+            let (op, _, _) = decode::decode(&self.wolfwig.peripherals, self.pc);
             println!(
                 "PC: 0x{:02X} Cycle: 0x{:04X} Op: {}",
                 self.pc, self.cycle, op
@@ -148,7 +148,7 @@ impl Debug {
                     Some("PC") => self.wolfwig.print_reg16(registers::Reg16::PC),
                     Some(val) => match to_int32(val) {
                         Some(addr) if addr <= 0xFFFF => {
-                            println!("0x{:02X}", self.wolfwig.peripherals.mem.read(addr))
+                            println!("0x{:02X}", self.wolfwig.peripherals.read(addr as u16))
                         }
                         Some(addr) => println!("Addr 0x{:X} too large", addr),
                         None => {
@@ -158,7 +158,7 @@ impl Debug {
                             {
                                 print!("[");
                                 for addr in start..(end + 1) {
-                                    print!(" 0x{:02X}", self.wolfwig.peripherals.mem.read(addr));
+                                    print!(" 0x{:02X}", self.wolfwig.peripherals.read(addr as u16));
                                 }
                                 println!(" ]");
                             } else {

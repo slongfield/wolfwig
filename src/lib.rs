@@ -33,7 +33,7 @@ impl Wolfwig {
 
     pub fn step(&mut self) -> bool {
         self.peripherals.step();
-        self.cpu.step(&mut self.peripherals.mem)
+        self.cpu.step(&mut self.peripherals)
     }
 
     pub fn start_print_serial(&mut self) {
