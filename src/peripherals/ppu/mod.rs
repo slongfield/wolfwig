@@ -1,13 +1,11 @@
+use sdl2;
 ///! PPU is the Pixel Processing Unit, which displays the Gameboy Screen.
-use sdl2::{self, pixels, rect};
 use std::thread;
 use std::time::Duration;
 
-// 16 tiles wide, each 8 pixels wide, with a one-pixel spacer. 4 pixels per pixel
-// 16 + 16*8*4 = 528
-const MAX_X: u32 = 528;
-// 8 tiles tall, each 8 pixels, with a one-pixel spaces. 4 pixels per pixel
-const MAX_Y: u32 = 528;
+mod display;
+mod fake_display;
+mod sdl_display;
 
 const CYCLE_LEN: usize = 70224;
 
@@ -15,7 +13,7 @@ const LINE_COUNT: u8 = 154;
 
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
-    canvas: sdl2::render::Canvas<sdl2::video::Window>,
+    display: Box<display::Display>,
     cycle: usize,
     wait_for_frame: bool,
     // Video RAM. TODO(slongfield): In CGB, should be switchable banks.
@@ -32,15 +30,20 @@ impl Ppu {
     // LCD Y coordinate, current line being rendered.
     const LY: u16 = 0xFF44;
 
-    pub fn new(video_subsystem: sdl2::VideoSubsystem) -> Self {
-        let window = video_subsystem
-            .window("Gameboy Tile Viewer", MAX_X, MAX_Y)
-            .position_centered()
-            .build()
-            .unwrap();
-
+    pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
-            canvas: window.into_canvas().build().unwrap(),
+            display: Box::new(sdl_display::SdlDisplay::new(video_subsystem)),
+            cycle: 0,
+            wait_for_frame: false,
+            vram: [0; 0x2000],
+            oam: [0; 0x100],
+            lcd_y: 0,
+        }
+    }
+
+    pub fn new_fake() -> Self {
+        Self {
+            display: Box::new(fake_display::FakeDisplay::new()),
             cycle: 0,
             wait_for_frame: false,
             vram: [0; 0x2000],
@@ -56,7 +59,7 @@ impl Ppu {
             if self.wait_for_frame {
                 thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
             }
-            self.canvas.present();
+            self.display.show();
         }
         // Every 456 cycles advance one "line".
         // This is a fake placeholder for now. Need to do more realistic handling of the lines to
@@ -119,31 +122,22 @@ impl Ppu {
     }
 
     fn render(&mut self) {
-        // Which of the four Y bits are being rendered?
-        let mut y_spirte_pos: i32 = 0;
+        let mut y_spirte_pos: usize = 0;
+        let mut x_tile_pos: usize = 0;
+        let mut y_tile_pos: usize = 0;
 
-        // Which of the 16 possible X tiles are being rendered?
-        let mut x_tile_pos: i32 = 0;
-        // Which of the 8 possible Y tiles are being rendered?
-        let mut y_tile_pos: i32 = 0;
+        self.display.clear(display::Color::RGB(255, 0, 0));
 
-        self.canvas.set_draw_color(pixels::Color::RGB(255, 0, 0));
-        self.canvas.clear();
-
-        // Render the backgr und tileset
         for addr in (0..0x1000).step_by(2) {
             let upper_byte = self.vram[addr];
             let lower_byte = self.vram[addr + 1];
             for (index, pixel) in (0..8).rev().enumerate() {
-                let index = index as i32;
                 let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
                 let pcolor = pixel.wrapping_mul(84);
-                self.canvas
-                    .set_draw_color(pixels::Color::RGB(pcolor, pcolor, pcolor));
-                let x_pos = x_tile_pos * 8 * 4 + x_tile_pos + index * 4;
-                let y_pos = y_tile_pos * 8 * 4 + y_tile_pos + y_spirte_pos * 4;
-                self.canvas
-                    .fill_rect(rect::Rect::new(x_pos, y_pos, 4, 4))
+                let x = x_tile_pos * 8 + x_tile_pos + index;
+                let y = y_tile_pos * 8 + y_tile_pos + y_spirte_pos;
+                self.display
+                    .draw_pixel(x, y, display::Color::RGB(pcolor, pcolor, pcolor))
                     .expect("Could not draw rect");
             }
             y_spirte_pos = (y_spirte_pos + 1) % 8;
