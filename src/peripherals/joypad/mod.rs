@@ -1,26 +1,32 @@
 ///! Joypad is the joypad peripheral
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 use sdl2::EventPump;
 use std::process;
 
+mod events;
+mod fake_events;
+mod sdl_events;
+
+use peripherals::joypad::events::Event;
+
 pub struct Joypad {
-    events: EventPump,
+    events: Box<events::EventStream>,
 }
 
 impl Joypad {
-    pub fn new(events: EventPump) -> Self {
+    pub fn new_sdl(events: EventPump) -> Self {
+        let events = Box::new(sdl_events::SdlEvents::new(events));
+        Self { events }
+    }
+
+    pub fn new_fake() -> Self {
+        let events = Box::new(fake_events::FakeEvents::new());
         Self { events }
     }
 
     pub fn step(&mut self) {
-        for event in self.events.poll_iter() {
+        for event in self.events.as_mut() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => process::exit(0),
+                Event::PowerOff => process::exit(0),
                 _ => {}
             }
         }
