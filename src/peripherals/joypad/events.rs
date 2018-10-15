@@ -1,15 +1,17 @@
-///! Interface that needs to be implemented to create a JoyPad
+///! Interface that needs to be implemented to create a `Joypad`
 
+///! Events that can be generated from the stream. For events that have a boolean, true means
+///! pressed, and false means released.
 pub enum Event {
     PowerOff,
-    Start,
-    Select,
-    A,
-    B,
-    Up,
-    Down,
-    Left,
-    Right,
+    Start(bool),
+    Select(bool),
+    A(bool),
+    B(bool),
+    Up(bool),
+    Down(bool),
+    Left(bool),
+    Right(bool),
     Ignore,
 }
 

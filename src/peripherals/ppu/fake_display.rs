@@ -10,8 +10,8 @@ impl FakeDisplay {
 }
 
 impl display::Display for FakeDisplay {
-    fn clear(&mut self, color: display::Color) {}
-    fn draw_pixel(&mut self, x: usize, y: usize, color: display::Color) -> Result<(), String> {
+    fn clear(&mut self, _color: display::Color) {}
+    fn draw_pixel(&mut self, _x: usize, _y: usize, _color: display::Color) -> Result<(), String> {
         Ok(())
     }
     fn show(&mut self) {}

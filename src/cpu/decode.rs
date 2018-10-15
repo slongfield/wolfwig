@@ -35,6 +35,8 @@ pub enum Op {
     ConditionalReturn(Flag),
     DisableInterrupts,
     EnableInterrupts,
+    SetupInterrupt,
+    ExecuteInterrupt(u16),
     Halt,
     Jump(Address),
     JumpRelative(u16),
@@ -102,7 +104,9 @@ impl fmt::Display for Op {
             Op::StoreAndDecrement(addr, src) => write!(f, "LD ({}-) {}", addr, src),
             Op::StoreAndIncrement(addr, src) => write!(f, "LD ({}+) {}", addr, src),
             Op::WideStore(addr, src) => write!(f, "LD ({}) {}", addr, src),
-            Op::Unknown(code) => write!(f, "Don't know how to display: 0x{:X}", code),
+            Op::Unknown(_) | Op::SetupInterrupt | Op::ExecuteInterrupt(_) => {
+                write!(f, "Don't know how to display op")
+            }
         }
     }
 }

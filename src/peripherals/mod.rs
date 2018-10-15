@@ -104,7 +104,7 @@ impl Peripherals {
             // High RAM.
             addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
             addr @ 0xFFFF => self.interrupt.write(addr, val),
-            addr => unreachable!("Bad addr: {:#04X}", addr),
+            addr => {}
         }
     }
 
@@ -134,8 +134,16 @@ impl Peripherals {
             }
             addr @ 0xFF80..=0xFFFE => self.mem.read(addr),
             addr @ 0xFFFF => self.interrupt.read(addr),
-            addr => unreachable!("Bad addr: {:#04X}", addr),
+            addr => 0,
         }
+    }
+
+    pub fn get_interrupt(&self) -> Option<u16> {
+        self.interrupt.get_interrupt_pc()
+    }
+
+    pub fn disable_interrupt(&mut self) {
+        self.interrupt.disable_interrupt()
     }
 
     pub fn connect_serial_channel(&mut self, tx: mpsc::Sender<u8>) {

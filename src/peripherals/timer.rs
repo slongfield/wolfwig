@@ -31,18 +31,18 @@ impl Timer {
     }
 
     pub fn step(&mut self, interrupt: &mut Interrupt) {
-        self.divider.wrapping_add(4);
         if self.set_counter {
             self.counter = self.modulo;
             interrupt.set_flag(Irq::Timer, true);
         }
         if self.enabled() && self.increment_bit_unset() && self.prev_increment_bit {
-            self.counter.wrapping_add(1);
+            self.counter = self.counter.wrapping_add(1);
             if self.counter == 0 {
                 self.set_counter = true;
             }
         }
         self.prev_increment_bit = !self.increment_bit_unset();
+        self.divider = self.divider.wrapping_add(4);
     }
 
     pub fn write(&mut self, addr: u16, val: u8) {
@@ -57,7 +57,17 @@ impl Timer {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            Self::DIV => (self.divider >> 8) as u8,
+            Self::DIV => {
+                println!(
+                    "divider: {:#04x} counter: {:02x} modulo: {:02x} control: {:02x} enabled: {}",
+                    self.divider,
+                    self.counter,
+                    self.modulo,
+                    self.control,
+                    self.enabled()
+                );
+                (self.divider >> 8) as u8
+            }
             Self::TIMA => self.counter,
             Self::TMA => self.modulo,
             Self::TAC => self.control,
@@ -65,26 +75,18 @@ impl Timer {
         }
     }
 
-    // TODO(slongfield): What happens if the timer is disabled when an interrupt should be
-    // triggered on the next cycle?
-    // TODO(slongfield): Writes to the interrupt vector should overwrite the timer write to the
-    // interrupt vector. Test to make sure that's happening properly.
-    //fn set_interrupt_flag(&self, mem: &mut Memory) {
-    //    mem.set_interrupt_flag(Interrupt::Timer, true);
-    //}
-
     fn increment_bit_unset(&self) -> bool {
         let bit = match self.control & 0x3 {
-            0b00 => 9,
-            0b01 => 3,
-            0b10 => 5,
-            0b11 => 7,
+            0b00 => 8,
+            0b01 => 2,
+            0b10 => 4,
+            0b11 => 6,
             _ => unreachable!(),
         };
-        self.divider & (1 << bit) != 0
+        self.divider & (1 << bit) == 0
     }
 
     fn enabled(&self) -> bool {
-        self.control & (1 << 3) != 0
+        self.control & (1 << 2) != 0
     }
 }

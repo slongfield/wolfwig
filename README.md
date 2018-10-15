@@ -15,7 +15,7 @@ No features have been implemented.
 #### `cpu_insts`
 
 - [x] 01 - Special
-- [ ] 02 - Interrupts
+- [x] 02 - Interrupts
 - [x] 03 - Op SP, HL
 - [x] 04 - Op R, IMM
 - [x] 05 - Op RP
@@ -26,10 +26,13 @@ No features have been implemented.
 - [x] 10 - bit ops
 - [x] 11 - op a,(hl).s
 
+Note: All the individual tests pass, but the full test does not. Possibly due to lack of modeling
+for memory controllers?
+
 ## TODO
 
-- [ ] Emulate basic LR25902
-- [ ] Timer peripheral
+- [x] Emulate basic LR25902
+- [x] Timer peripheral
 - [ ] Basic PPU (Tetris-level)
 - [ ] Joypad
 - [ ] Handle Memory Controllers

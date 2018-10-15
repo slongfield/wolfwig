@@ -24,6 +24,7 @@ pub struct Ppu {
     oam: [u8; 0x100],
     // I/O registers
     lcd_y: u8,
+    rendered: bool,
 }
 
 impl Ppu {
@@ -38,6 +39,7 @@ impl Ppu {
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
+            rendered: false,
         }
     }
 
@@ -49,17 +51,22 @@ impl Ppu {
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
+            rendered: false,
         }
     }
 
     pub fn step(&mut self) {
         // Once every 70224 cycles, render.
         if self.cycle == 0 {
+            self.rendered = false;
+        }
+        if self.lcd_y == 100 && !self.rendered {
             self.render();
             if self.wait_for_frame {
                 thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
             }
             self.display.show();
+            self.rendered = true;
         }
         // Every 456 cycles advance one "line".
         // This is a fake placeholder for now. Need to do more realistic handling of the lines to

@@ -27,6 +27,7 @@ pub struct LR25902 {
     cycle: usize,
     interrupt_enable: bool,
     halted: bool,
+    interrupted: bool,
     stopped: bool,
 }
 
@@ -37,6 +38,7 @@ impl LR25902 {
             next_op: NextOp::new(),
             cycle: 0,
             interrupt_enable: false,
+            interrupted: false,
             halted: false,
             stopped: false,
         }
@@ -49,19 +51,52 @@ impl LR25902 {
             self.cycle,
             self.regs.read16(Reg16::PC)
         );
-        if self.next_op.delay_cycles == 0 && !self.halted {
-            let op = mem::replace(&mut self.next_op, NextOp::new());
-            let pc = self.execute_op(mem, &op);
-            let (op, size, cycles) = decode::decode(mem, pc);
-            self.next_op.op = op;
-            self.next_op.pc_offset = size as u16;
-            if cycles > 0 {
-                self.next_op.delay_cycles = cycles - 1;
+        if self.next_op.delay_cycles == 0 {
+            if !self.halted {
+                let op = mem::replace(&mut self.next_op, NextOp::new());
+                let pc = self.execute_op(mem, &op);
+                if self.interrupted {
+                    if let Some(interrupt_pc) = mem.get_interrupt() {
+                        self.next_op.op = Op::ExecuteInterrupt(interrupt_pc);
+                        self.next_op.delay_cycles = 0;
+                        self.interrupted = false;
+                        mem.disable_interrupt();
+                    } else {
+                        panic!("Interrupt dropped while attempting to execute!");
+                    }
+                } else if mem.get_interrupt() != None && self.interrupt_enable {
+                    self.next_op.op = Op::SetupInterrupt;
+                    self.next_op.delay_cycles = 3;
+                    self.interrupted = true;
+                    self.interrupt_enable = false;
+                } else {
+                    let (op, size, cycles) = decode::decode(mem, pc);
+                    self.next_op.op = op;
+                    self.next_op.pc_offset = size as u16;
+                    if cycles > 0 {
+                        self.next_op.delay_cycles = cycles - 1;
+                    } else {
+                        self.next_op.delay_cycles = 0;
+                    }
+                }
+            } else if mem.get_interrupt() != None {
+                let op = mem::replace(&mut self.next_op, NextOp::new());
+                self.next_op.op = Op::SetupInterrupt;
+                self.next_op.delay_cycles = 3;
+                self.interrupted = true;
+                self.interrupt_enable = false;
+                self.halted = false;
             } else {
-                self.next_op.delay_cycles = 0;
+                println!(
+                    "Executing halted: {} {:?}",
+                    self.interrupt_enable,
+                    mem.get_interrupt()
+                );
             }
         } else {
-            self.next_op.delay_cycles -= 1;
+            if self.next_op.delay_cycles > 0 {
+                self.next_op.delay_cycles -= 1;
+            }
         }
         self.cycle += 1;
         self.stopped
@@ -81,6 +116,15 @@ impl LR25902 {
             }
             Op::DisableInterrupts => {
                 self.interrupt_enable = false;
+            }
+            Op::SetupInterrupt => {
+                let sp = self.regs.read16(Reg16::SP);
+                mem.write(sp - 1, ((next_pc >> 8) & 0xFF) as u8);
+                mem.write(sp - 2, (next_pc & 0xFF) as u8);
+                self.regs.set16(Reg16::SP, sp - 2);
+            }
+            Op::ExecuteInterrupt(new_pc) => {
+                next_pc = new_pc;
             }
             Op::Halt => {
                 // TODO(slongfield): Add halted bug. If interrupts are not enabled. Halt skips the

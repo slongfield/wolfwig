@@ -24,6 +24,12 @@ impl Interrupt {
     const SERIAL: u8 = 1 << 3;
     const JOYPAD: u8 = 1 << 4;
 
+    const VBLANK_PC: u16 = 0x40;
+    const LCD_STAT_PC: u16 = 0x48;
+    const TIMER_PC: u16 = 0x50;
+    const SERIAL_PC: u16 = 0x58;
+    const JOYPAD_PC: u16 = 0x60;
+
     pub fn new() -> Self {
         Self { enable: 0, flag: 0 }
     }
@@ -80,25 +86,40 @@ impl Interrupt {
         }
     }
 
-    /// Returns the highest prioirty that's enabled and whose flag is set, or None if no
-    /// interrupts are ready.
-    pub fn get_interrupt(&mut self) -> Option<Irq> {
+    /// Returns the pc for the highest prioirty interrupt that's enabled and whose flag is set,
+    /// or None if no interrupts are ready.
+    pub fn get_interrupt_pc(&self) -> Option<u16> {
         if (self.enable & Self::VBLANK != 0) && (self.flag & Self::VBLANK != 0) {
-            return Some(Irq::Vblank);
+            return Some(Self::VBLANK_PC);
         }
         if (self.enable & Self::LCD_STAT != 0) && (self.flag & Self::LCD_STAT != 0) {
-            return Some(Irq::LCDStat);
+            return Some(Self::LCD_STAT_PC);
         }
         if (self.enable & Self::TIMER != 0) && (self.flag & Self::TIMER != 0) {
-            return Some(Irq::Timer);
+            return Some(Self::TIMER_PC);
         }
         if (self.enable & Self::SERIAL != 0) && (self.flag & Self::SERIAL != 0) {
-            return Some(Irq::Serial);
+            return Some(Self::SERIAL_PC);
         }
         if (self.enable & Self::JOYPAD != 0) && (self.flag & Self::JOYPAD != 0) {
-            return Some(Irq::Joypad);
+            return Some(Self::JOYPAD_PC);
         }
         None
+    }
+
+    /// Clears the flag of the current higest-priority enabled interrupt.
+    pub fn disable_interrupt(&mut self) {
+        if (self.enable & Self::VBLANK != 0) && (self.flag & Self::VBLANK != 0) {
+            self.set_flag(Irq::Vblank, false);
+        } else if (self.enable & Self::LCD_STAT != 0) && (self.flag & Self::LCD_STAT != 0) {
+            self.set_flag(Irq::LCDStat, false);
+        } else if (self.enable & Self::TIMER != 0) && (self.flag & Self::TIMER != 0) {
+            self.set_flag(Irq::Timer, false);
+        } else if (self.enable & Self::SERIAL != 0) && (self.flag & Self::SERIAL != 0) {
+            self.set_flag(Irq::Serial, false);
+        } else if (self.enable & Self::JOYPAD != 0) && (self.flag & Self::JOYPAD != 0) {
+            self.set_flag(Irq::Joypad, false);
+        }
     }
 }
 
@@ -115,18 +136,21 @@ mod tests {
         interrupt.set_flag(Irq::Vblank, true);
         interrupt.set_flag(Irq::Timer, true);
         interrupt.set_flag(Irq::LCDStat, true);
-        assert_eq!(interrupt.get_interrupt().unwrap(), Irq::LCDStat);
+        assert_eq!(
+            interrupt.get_interrupt_pc().unwrap(),
+            Interrupt::LCD_STAT_PC
+        );
 
         interrupt.set_enable(Irq::Vblank, true);
-        assert_eq!(interrupt.get_interrupt().unwrap(), Irq::Vblank);
+        assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::VBLANK_PC);
 
         interrupt.set_flag(Irq::LCDStat, false);
-        assert_eq!(interrupt.get_interrupt().unwrap(), Irq::Vblank);
+        assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::VBLANK_PC);
 
         interrupt.set_flag(Irq::Vblank, false);
-        assert_eq!(interrupt.get_interrupt().unwrap(), Irq::Timer);
+        assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::TIMER_PC);
 
         interrupt.set_flag(Irq::Timer, false);
-        assert!(interrupt.get_interrupt().is_none());
+        assert!(interrupt.get_interrupt_pc().is_none());
     }
 }
