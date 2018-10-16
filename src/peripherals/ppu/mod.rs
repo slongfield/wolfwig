@@ -28,8 +28,31 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    // LCD Y coordinate, current line being rendered.
+    // LCD control
+    const LCDC: u16 = 0xFF40;
+    // LCD status register (read/write bits 2-6, RO bits 0-1)
+    const STAT: u16 = 0xFF41;
+    // Scroll Y/X: Specifies the position of the background window. Changes take effect at end of
+    // current scanline.
+    const SCY: u16 = 0xFF42;
+    const SCX: u16 = 0xFF43;
+    // LCD Y coordinate, current line being rendered. Read-only.
     const LY: u16 = 0xFF44;
+    // LCD Y compare. When equal to LY, bit in STAT is set, and (if enabled), STAT interrupt
+    // fires.
+    const LYC: u16 = 0xFF45;
+    // Writes to this register starts a DMA transfer from the address written to OAM.
+    const DMA: u16 = 0xFF46;
+    // Background palette data
+    const BGP: u16 = 0xFF47;
+    // Object Palette 0 Data
+    const OBP0: u16 = 0xFF48;
+    // Object Palette 1 Data
+    const OBP1: u16 = 0xFF49;
+    // Window Y and X position. This is an alternate background that is displayed above the
+    // current background if visible.
+    const WY: u16 = 0xFF4A;
+    const WX: u16 = 0xFF4B;
 
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
