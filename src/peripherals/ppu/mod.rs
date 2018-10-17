@@ -11,6 +11,137 @@ const CYCLE_LEN: usize = 70224;
 
 const LINE_COUNT: u8 = 154;
 
+// Written to by 0xFF40.
+struct LCDControl {
+    enable: bool,
+    window_tile_map: bool,
+    window_display: bool,
+    bg_tile_set: bool,
+    bg_tile_map: bool,
+    sprite_size: bool,
+    sprite_enable: bool,
+    bg_enable: bool,
+}
+
+impl LCDControl {
+    fn new() -> Self {
+        Self {
+            enable: false,
+            window_tile_map: false,
+            window_display: false,
+            bg_tile_set: false,
+            bg_tile_map: false,
+            sprite_size: false,
+            sprite_enable: false,
+            bg_enable: false,
+        }
+    }
+
+    fn write(&mut self, val: u8) {
+        self.enable = val & (1 << 7) != 0;
+        self.window_tile_map = val & (1 << 6) != 0;
+        self.window_display = val & (1 << 5) != 0;
+        self.bg_tile_set = val & (1 << 4) != 0;
+        self.bg_tile_map = val & (1 << 3) != 0;
+        self.sprite_size = val & (1 << 2) != 0;
+        self.sprite_enable = val & (1 << 1) != 0;
+        self.bg_enable = val & 1 != 0;
+    }
+
+    fn read(&self) -> u8 {
+        let mut out = 0;
+        if self.enable {
+            out |= 1 << 7;
+        }
+        if self.window_tile_map {
+            out |= 1 << 6;
+        }
+        if self.window_display {
+            out |= 1 << 5;
+        }
+        if self.bg_tile_set {
+            out |= 1 << 4;
+        }
+        if self.bg_tile_map {
+            out |= 1 << 3;
+        }
+        if self.sprite_size {
+            out |= 1 << 2;
+        }
+        if self.sprite_enable {
+            out |= 1 << 1;
+        }
+        if self.bg_enable {
+            out |= 1;
+        }
+        out
+    }
+}
+
+enum Mode {
+    // HBlank
+    Mode0,
+    // VBlank
+    Mode1,
+    // Read from OAM, set up sprite info for this line.
+    Mode2,
+    // Render the line, reads OAM and VRAM.
+    Mode3,
+}
+
+struct LCDStatus {
+    lyc_interrupt: bool,
+    mode2_interrupt: bool,
+    mode1_interrupt: bool,
+    mode0_interrupt: bool,
+    lyc_eq_ly: bool,
+    mode: Mode,
+}
+
+impl LCDStatus {
+    fn new() -> Self {
+        Self {
+            lyc_interrupt: false,
+            mode2_interrupt: false,
+            mode1_interrupt: false,
+            mode0_interrupt: false,
+            lyc_eq_ly: false,
+            mode: Mode::Mode2,
+        }
+    }
+    fn write(&mut self, val: u8) {
+        self.lyc_interrupt = val & (1 << 6) != 0;
+        self.mode2_interrupt = val & (1 << 5) != 0;
+        self.mode1_interrupt = val & (1 << 4) != 0;
+        self.mode0_interrupt = val & (1 << 3) != 0;
+    }
+    fn read(&self, lcd_y_eq_compare: bool) -> u8 {
+        let mut out = 1 << 7;
+        if self.lyc_interrupt {
+            out |= 1 << 6;
+        }
+        if self.mode2_interrupt {
+            out |= 1 << 5;
+        }
+        if self.mode1_interrupt {
+            out |= 1 << 4;
+        }
+        if self.mode0_interrupt {
+            out |= 1 << 3;
+        }
+        if lcd_y_eq_compare {
+            out |= 1 << 2;
+        }
+        match self.mode {
+            Mode::Mode0 => out |= 0,
+            Mode::Mode1 => out |= 1,
+            Mode::Mode2 => out |= 2,
+            Mode::Mode3 => out |= 3,
+        }
+        out
+    }
+}
+
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
     display: Box<display::Display>,
@@ -23,7 +154,13 @@ pub struct Ppu {
     // 0xFE00-0xFE9F
     oam: [u8; 0x100],
     // I/O registers
+    control: LCDControl,
+    status: LCDStatus,
+    scroll_x: u8,
+    scroll_y: u8,
     lcd_y: u8,
+    lcd_y_compare: u8,
+    dma: u8,
     rendered: bool,
 }
 
@@ -62,7 +199,13 @@ impl Ppu {
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
+            scroll_x: 0,
+            scroll_y: 0,
+            lcd_y_compare: 0,
+            dma: 0,
             rendered: false,
+            control: LCDControl::new(),
+            status: LCDStatus::new(),
         }
     }
 
@@ -74,7 +217,13 @@ impl Ppu {
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
+            scroll_x: 0,
+            scroll_y: 0,
+            lcd_y_compare: 0,
+            dma: 0,
             rendered: false,
+            control: LCDControl::new(),
+            status: LCDStatus::new(),
         }
     }
 
@@ -102,17 +251,26 @@ impl Ppu {
 
     pub fn write(&mut self, address: u16, val: u8) {
         match address {
-            addr @ 0x8000..=0x9FFF => {
-                if let Some(old) = self.vram.get_mut((addr as usize) - 0x8000) {
-                    *old = val;
+            addr @ 0x8000..=0x9FFF => match self.status.mode {
+                Mode::Mode0 | Mode::Mode1 | Mode::Mode2 => {
+                    if let Some(old) = self.vram.get_mut((addr as usize) - 0x8000) {
+                        *old = val;
+                    }
                 }
-            }
-            addr @ 0xFE00..=0xFE9F => {
-                if let Some(old) = self.oam.get_mut((addr as usize) - 0xFE00) {
-                    *old = val;
+                Mode::Mode3 => {}
+            },
+            addr @ 0xFE00..=0xFE9F => match self.status.mode {
+                Mode::Mode0 | Mode::Mode1 => {
+                    if let Some(old) = self.oam.get_mut((addr as usize) - 0xFE00) {
+                        *old = val;
+                    }
                 }
-            }
-            Self::LY => self.lcd_y = val,
+                Mode::Mode2 | Mode::Mode3 => {}
+            },
+            Self::LCDC => self.control.write(val),
+            Self::STAT => self.status.write(val),
+            Self::LY => {}
+            Self::LYC => self.lcd_y_compare = val,
             0xFF40..=0xFF4B => info!(
                 "Attempted to write to unhandled PPU register: {:#04X}",
                 address
@@ -123,23 +281,32 @@ impl Ppu {
 
     pub fn read(&self, address: u16) -> u8 {
         match address {
-            addr @ 0x8000..=0x9FFF => {
-                if let Some(val) = self.vram.get((addr as usize) - 0x8000) {
-                    *val
-                } else {
-                    error!("Read from unmapped VRAM address {:#04X}", addr);
-                    0
+            addr @ 0x8000..=0x9FFF => match self.status.mode {
+                Mode::Mode0 | Mode::Mode1 | Mode::Mode2 => {
+                    if let Some(val) = self.vram.get((addr as usize) - 0x8000) {
+                        *val
+                    } else {
+                        error!("Read from unmapped VRAM address {:#04X}", addr);
+                        0
+                    }
                 }
-            }
-            addr @ 0xFE00..=0xFE9F => {
-                if let Some(val) = self.oam.get((addr as usize) - 0xFE00) {
-                    *val
-                } else {
-                    error!("Read from unmapped OAM address {:#04X}", addr);
-                    0
+                Mode::Mode3 => 0xFF,
+            },
+            addr @ 0xFE00..=0xFE9F => match self.status.mode {
+                Mode::Mode0 | Mode::Mode1 => {
+                    if let Some(val) = self.oam.get((addr as usize) - 0xFE00) {
+                        *val
+                    } else {
+                        error!("Read from unmapped OAM address {:#04X}", addr);
+                        0
+                    }
                 }
-            }
+                Mode::Mode2 | Mode::Mode3 => 0xFF,
+            },
+            Self::LCDC => self.control.read(),
+            Self::STAT => self.status.read(self.lcd_y == self.lcd_y_compare),
             Self::LY => self.lcd_y,
+            Self::LYC => self.lcd_y_compare,
             0xFF40..=0xFF4B => {
                 info!(
                     "Attempted to read from unhandled PPU register: {:#04X}",
