@@ -10,6 +10,11 @@ mod sdl_display;
 const CYCLE_LEN: usize = 70224;
 
 const LINE_COUNT: u8 = 154;
+const VISIBLE_COUNT: u8 = 144;
+const MODE0_CYCLES: u8 = 51;
+const MODE1_CYCLES: u8 = 114; // cycles per line
+const MODE2_CYCLES: u8 = 20;
+const MODE3_CYCLES: u8 = 43;
 
 // Written to by 0xFF40.
 struct LCDControl {
@@ -106,7 +111,7 @@ impl LCDStatus {
             mode1_interrupt: false,
             mode0_interrupt: false,
             lyc_eq_ly: false,
-            mode: Mode::Mode2,
+            mode: Mode::Mode0,
         }
     }
     fn write(&mut self, val: u8) {
@@ -161,7 +166,7 @@ pub struct Ppu {
     lcd_y: u8,
     lcd_y_compare: u8,
     dma: u8,
-    rendered: bool,
+    mode_cycle: u8,
 }
 
 impl Ppu {
@@ -203,9 +208,9 @@ impl Ppu {
             scroll_y: 0,
             lcd_y_compare: 0,
             dma: 0,
-            rendered: false,
             control: LCDControl::new(),
             status: LCDStatus::new(),
+            mode_cycle: 0,
         }
     }
 
@@ -221,32 +226,21 @@ impl Ppu {
             scroll_y: 0,
             lcd_y_compare: 0,
             dma: 0,
-            rendered: false,
             control: LCDControl::new(),
             status: LCDStatus::new(),
+            mode_cycle: 0,
         }
     }
 
     pub fn step(&mut self) {
-        // Once every 70224 cycles, render.
-        if self.cycle == 0 {
-            self.rendered = false;
-        }
-        if self.lcd_y == 100 && !self.rendered {
-            self.render();
-            if self.wait_for_frame {
-                thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
+        if self.control.enable {
+            match self.status.mode {
+                Mode::Mode0 => self.mode0(),
+                Mode::Mode1 => self.mode1(),
+                Mode::Mode2 => self.mode2(),
+                Mode::Mode3 => self.mode3(),
             }
-            self.display.show();
-            self.rendered = true;
         }
-        // Every 456 cycles advance one "line".
-        // This is a fake placeholder for now. Need to do more realistic handling of the lines to
-        // actually show data. This just gets through the bootloader.
-        if self.cycle % 456 == 0 {
-            self.lcd_y = (self.lcd_y + 1) % LINE_COUNT;
-        }
-        self.cycle = (self.cycle + 1) % CYCLE_LEN;
     }
 
     pub fn write(&mut self, address: u16, val: u8) {
@@ -269,6 +263,9 @@ impl Ppu {
             },
             Self::LCDC => self.control.write(val),
             Self::STAT => self.status.write(val),
+            // TODO(slongfield): Figure out when SCY and SCX are writeable.
+            Self::SCY => self.scroll_y = val,
+            Self::SCX => self.scroll_x = val,
             Self::LY => {}
             Self::LYC => self.lcd_y_compare = val,
             0xFF40..=0xFF4B => info!(
@@ -305,6 +302,8 @@ impl Ppu {
             },
             Self::LCDC => self.control.read(),
             Self::STAT => self.status.read(self.lcd_y == self.lcd_y_compare),
+            Self::SCY => self.scroll_y,
+            Self::SCX => self.scroll_x,
             Self::LY => self.lcd_y,
             Self::LYC => self.lcd_y_compare,
             0xFF40..=0xFF4B => {
@@ -315,6 +314,109 @@ impl Ppu {
                 0
             }
             addr => panic!("Attempted to write PPU with unmapped addr: {:#x}", addr),
+        }
+    }
+
+    // HBlank, do nothing.
+    fn mode0(&mut self) {
+        self.mode_cycle += 1;
+        if self.mode_cycle == MODE1_CYCLES {
+            self.lcd_y += 1;
+            self.mode_cycle = 0;
+            // TODO(slongfield): Compare LCD Y
+            if self.lcd_y == VISIBLE_COUNT {
+                self.status.mode = Mode::Mode1;
+            } else {
+                self.status.mode = Mode::Mode2;
+            }
+        }
+    }
+
+    // VBlank, do nothing
+    fn mode1(&mut self) {
+        self.mode_cycle += 1;
+        if self.mode_cycle == MODE1_CYCLES {
+            self.lcd_y += 1;
+            self.mode_cycle = 0;
+            // TODO(slongfield): Compare LCD Y
+            if self.lcd_y == LINE_COUNT {
+                self.lcd_y = 0;
+                self.status.mode = Mode::Mode2;
+
+                self.display.show();
+                if self.wait_for_frame && false {
+                    thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
+                }
+            }
+        }
+    }
+
+    // OAM read, build sprite list.
+    fn mode2(&mut self) {
+        // TODO(slongfield): Collect sprites.
+        self.mode_cycle += 1;
+        if self.mode_cycle == MODE2_CYCLES {
+            self.mode_cycle = 0;
+            self.status.mode = Mode::Mode3;
+        }
+    }
+
+    // Draw mode!
+    fn mode3(&mut self) {
+        // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
+        // to draw 160 pixels.
+        // TODO(slongfield): Model pixel fifo
+        if (self.mode_cycle % 2 == 0) {
+            // TODO(slongfield): Better way to calculate this?
+            let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
+            let x = u16::from(self.scroll_x.wrapping_add(self.mode_cycle * 4));
+            //let y = u16::from(self.lcd_y);
+            //let x = u16::from((self.mode_cycle) * 4);
+            let y_tile = y / 8;
+            let x_tile = x / 8;
+            // Get background tiles.
+            let tile_map_start: u16 = match self.control.bg_tile_map {
+                false => 0x1800,
+                true => 0x1C00,
+            };
+            let tile = self
+                .vram
+                .get((tile_map_start + y_tile * 32 + x_tile) as usize)
+                .unwrap_or(&0);
+            /*
+               println!(
+               "x,y: {},{}, tile x,y: {},{},addr: {:#04x} tile# {}",
+               x,
+               y,
+               x_tile,
+               y_tile,
+               tile_map_start + y_tile * 32 + x_tile,
+               tile
+               );*/
+            let bg_tileset_start = match self.control.bg_tile_set {
+                false => 0x800,
+                true => 0x0,
+            };
+            let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
+            let upper_byte = self.vram[addr];
+            let lower_byte = self.vram[addr + 1];
+            for (index, pixel) in (0..8).rev().enumerate() {
+                // TODO(slongfield): Apply palette.
+                let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
+                let pcolor = pixel.wrapping_mul(84);
+                let x = (self.mode_cycle) * 4 + (index as u8);
+                self.display
+                    .draw_pixel(
+                        x as usize,
+                        self.lcd_y as usize,
+                        display::Color::RGB(pcolor, pcolor, pcolor),
+                    ).expect("Could not draw rect");
+            }
+        }
+        self.mode_cycle += 1;
+        if self.mode_cycle == MODE3_CYCLES {
+            self.mode_cycle = 0;
+            self.status.mode = Mode::Mode0;
         }
     }
 

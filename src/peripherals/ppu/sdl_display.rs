@@ -2,11 +2,9 @@ use peripherals::ppu::display;
 use sdl2::{self, pixels, rect};
 use std::result::Result;
 
-// 16 tiles wide, each 8 pixels wide, with a one-pixel spacer. 4 pixels per pixel
-// 16 + 16*8*4 = 528
-const MAX_X: u32 = 528;
-// 8 tiles tall, each 8 pixels, with a one-pixel spaces. 4 pixels per pixel
-const MAX_Y: u32 = 528;
+// 4 pixels per pixel
+const MAX_X: u32 = 640;
+const MAX_Y: u32 = 576;
 
 // TODO(slongfield): This display is optimized for showing the background tile memory. Should make
 // it more configurable.
