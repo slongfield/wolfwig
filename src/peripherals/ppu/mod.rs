@@ -1,5 +1,5 @@
+use peripherals::interrupt::{Interrupt, Irq};
 use sdl2;
-///! PPU is the Pixel Processing Unit, which displays the Gameboy Screen.
 use std::thread;
 use std::time::Duration;
 
@@ -165,6 +165,7 @@ pub struct Ppu {
     scroll_y: u8,
     lcd_y: u8,
     lcd_y_compare: u8,
+    bg_palette: u8,
     dma: u8,
     mode_cycle: u8,
 }
@@ -210,6 +211,7 @@ impl Ppu {
             dma: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
+            bg_palette: 0,
             mode_cycle: 0,
         }
     }
@@ -228,17 +230,18 @@ impl Ppu {
             dma: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
+            bg_palette: 0,
             mode_cycle: 0,
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self, interrupt: &mut Interrupt) {
         if self.control.enable {
             match self.status.mode {
-                Mode::Mode0 => self.mode0(),
-                Mode::Mode1 => self.mode1(),
-                Mode::Mode2 => self.mode2(),
-                Mode::Mode3 => self.mode3(),
+                Mode::Mode0 => self.mode0(interrupt),
+                Mode::Mode1 => self.mode1(interrupt),
+                Mode::Mode2 => self.mode2(interrupt),
+                Mode::Mode3 => self.mode3(interrupt),
             }
         }
     }
@@ -268,6 +271,7 @@ impl Ppu {
             Self::SCX => self.scroll_x = val,
             Self::LY => {}
             Self::LYC => self.lcd_y_compare = val,
+            Self::BGP => self.bg_palette = val,
             0xFF40..=0xFF4B => info!(
                 "Attempted to write to unhandled PPU register: {:#04X}",
                 address
@@ -306,6 +310,7 @@ impl Ppu {
             Self::SCX => self.scroll_x,
             Self::LY => self.lcd_y,
             Self::LYC => self.lcd_y_compare,
+            Self::BGP => self.bg_palette,
             0xFF40..=0xFF4B => {
                 info!(
                     "Attempted to read from unhandled PPU register: {:#04X}",
@@ -318,33 +323,37 @@ impl Ppu {
     }
 
     // HBlank, do nothing.
-    fn mode0(&mut self) {
+    fn mode0(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE1_CYCLES {
             self.lcd_y += 1;
+            self.update_ly_interrupt(interrupt);
             self.mode_cycle = 0;
-            // TODO(slongfield): Compare LCD Y
             if self.lcd_y == VISIBLE_COUNT {
                 self.status.mode = Mode::Mode1;
             } else {
                 self.status.mode = Mode::Mode2;
             }
+            self.update_mode_interrupt(interrupt);
         }
     }
 
     // VBlank, do nothing
-    fn mode1(&mut self) {
+    fn mode1(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE1_CYCLES {
             self.lcd_y += 1;
+            self.update_ly_interrupt(interrupt);
             self.mode_cycle = 0;
             // TODO(slongfield): Compare LCD Y
             if self.lcd_y == LINE_COUNT {
                 self.lcd_y = 0;
                 self.status.mode = Mode::Mode2;
+                self.update_mode_interrupt(interrupt);
 
                 self.display.show();
                 if self.wait_for_frame && false {
+                    println!("Sleeping!");
                     thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
                 }
             }
@@ -352,17 +361,18 @@ impl Ppu {
     }
 
     // OAM read, build sprite list.
-    fn mode2(&mut self) {
+    fn mode2(&mut self, interrupt: &mut Interrupt) {
         // TODO(slongfield): Collect sprites.
         self.mode_cycle += 1;
         if self.mode_cycle == MODE2_CYCLES {
             self.mode_cycle = 0;
             self.status.mode = Mode::Mode3;
+            self.update_mode_interrupt(interrupt);
         }
     }
 
     // Draw mode!
-    fn mode3(&mut self) {
+    fn mode3(&mut self, interrupt: &mut Interrupt) {
         // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
         // to draw 160 pixels.
         // TODO(slongfield): Model pixel fifo
@@ -383,16 +393,6 @@ impl Ppu {
                 .vram
                 .get((tile_map_start + y_tile * 32 + x_tile) as usize)
                 .unwrap_or(&0);
-            /*
-               println!(
-               "x,y: {},{}, tile x,y: {},{},addr: {:#04x} tile# {}",
-               x,
-               y,
-               x_tile,
-               y_tile,
-               tile_map_start + y_tile * 32 + x_tile,
-               tile
-               );*/
             let bg_tileset_start = match self.control.bg_tile_set {
                 false => 0x800,
                 true => 0x0,
@@ -401,16 +401,18 @@ impl Ppu {
             let upper_byte = self.vram[addr];
             let lower_byte = self.vram[addr + 1];
             for (index, pixel) in (0..8).rev().enumerate() {
-                // TODO(slongfield): Apply palette.
                 let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                let pcolor = pixel.wrapping_mul(84);
+                // TODO(slongfield): Adjust to taste.
+                let color = match self.bg_color(pixel) {
+                    0b00 => display::Color::RGB(155, 188, 15),
+                    0b01 => display::Color::RGB(48, 98, 48),
+                    0b10 => display::Color::RGB(139, 172, 15),
+                    _ => display::Color::RGB(15, 56, 15),
+                };
                 let x = (self.mode_cycle) * 4 + (index as u8);
                 self.display
-                    .draw_pixel(
-                        x as usize,
-                        self.lcd_y as usize,
-                        display::Color::RGB(pcolor, pcolor, pcolor),
-                    ).expect("Could not draw rect");
+                    .draw_pixel(x as usize, self.lcd_y as usize, color)
+                    .expect("Could not draw rect");
             }
         }
         self.mode_cycle += 1;
@@ -420,32 +422,46 @@ impl Ppu {
         }
     }
 
-    fn render(&mut self) {
-        let mut y_spirte_pos: usize = 0;
-        let mut x_tile_pos: usize = 0;
-        let mut y_tile_pos: usize = 0;
+    fn update_ly_interrupt(&mut self, interrupt: &mut Interrupt) {
+        if self.lcd_y == self.lcd_y_compare {
+            self.status.lyc_eq_ly = true;
+        } else {
+            self.status.lyc_eq_ly = true;
+        }
+        if self.status.lyc_interrupt {
+            interrupt.set_flag(Irq::LCDStat, true);
+        }
+    }
 
-        self.display.clear(display::Color::RGB(255, 0, 0));
-
-        for addr in (0..0x1000).step_by(2) {
-            let upper_byte = self.vram[addr];
-            let lower_byte = self.vram[addr + 1];
-            for (index, pixel) in (0..8).rev().enumerate() {
-                let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                let pcolor = pixel.wrapping_mul(84);
-                let x = x_tile_pos * 8 + x_tile_pos + index;
-                let y = y_tile_pos * 8 + y_tile_pos + y_spirte_pos;
-                self.display
-                    .draw_pixel(x, y, display::Color::RGB(pcolor, pcolor, pcolor))
-                    .expect("Could not draw rect");
-            }
-            y_spirte_pos = (y_spirte_pos + 1) % 8;
-            if (y_spirte_pos) == 0 {
-                x_tile_pos = (x_tile_pos + 1) % 16;
-                if x_tile_pos == 0 {
-                    y_tile_pos += 1;
+    fn update_mode_interrupt(&mut self, interrupt: &mut Interrupt) {
+        match self.status.mode {
+            Mode::Mode0 => {
+                if self.status.mode0_interrupt {
+                    interrupt.set_flag(Irq::LCDStat, true);
                 }
             }
+            Mode::Mode1 => {
+                if self.status.mode1_interrupt {
+                    interrupt.set_flag(Irq::LCDStat, true);
+                }
+                interrupt.set_flag(Irq::Vblank, true);
+            }
+            Mode::Mode2 => {
+                if self.status.mode2_interrupt {
+                    interrupt.set_flag(Irq::LCDStat, true);
+                }
+            }
+            Mode::Mode3 => {}
         }
+    }
+
+    fn bg_color(&self, index: u8) -> u8 {
+        let shade = match index {
+            0b00 => self.bg_palette,
+            0b01 => self.bg_palette >> 2,
+            0b10 => self.bg_palette >> 4,
+            _ => self.bg_palette >> 6,
+        };
+        shade & 0x3
     }
 }

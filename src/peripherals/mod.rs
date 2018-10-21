@@ -74,7 +74,7 @@ impl Peripherals {
     pub fn step(&mut self) {
         self.apu.step();
         self.joypad.step();
-        self.ppu.step();
+        self.ppu.step(&mut self.interrupt);
         self.serial.step();
         self.timer.step(&mut self.interrupt);
     }
