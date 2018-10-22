@@ -36,9 +36,9 @@ impl Peripherals {
         let rom = read_rom_from_file(rom)?;
         let sdl = sdl2::init().unwrap();
         let video_subsystem = sdl.video().unwrap();
-        let event_subsystem = sdl.event_pump().unwrap();
         let ppu = ppu::Ppu::new_sdl(video_subsystem);
-        let joypad = joypad::Joypad::new_sdl(event_subsystem);
+        let events = sdl.event_pump().unwrap();
+        let joypad = joypad::Joypad::new_sdl(events);
         let apu = apu::Apu::new();
         let interrupt = interrupt::Interrupt::new();
         let timer = timer::Timer::new();

@@ -1,5 +1,5 @@
 ///! Fake event stream, for testing.
-use peripherals::joypad::events::{Event, EventStream};
+use peripherals::joypad::events::{EventHandler, State};
 // TODO(slongfield): Add a back channel for injecting events.
 
 pub struct FakeEvents {}
@@ -10,8 +10,9 @@ impl FakeEvents {
     }
 }
 
-impl EventStream for FakeEvents {
-    fn next_event(&mut self) -> Option<Event> {
-        None
+impl EventHandler for FakeEvents {
+    fn get_state(&mut self) -> State {
+        State::new()
     }
+    fn clear_keydown(&mut self) {}
 }

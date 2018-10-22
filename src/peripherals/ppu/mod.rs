@@ -376,7 +376,7 @@ impl Ppu {
         // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
         // to draw 160 pixels.
         // TODO(slongfield): Model pixel fifo
-        if (self.mode_cycle % 2 == 0) {
+        if self.mode_cycle % 2 == 0 {
             // TODO(slongfield): Better way to calculate this?
             let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
             let x = u16::from(self.scroll_x.wrapping_add(self.mode_cycle * 4));
