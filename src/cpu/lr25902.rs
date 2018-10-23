@@ -87,7 +87,7 @@ impl LR25902 {
                 self.interrupt_enable = false;
                 self.halted = false;
             } else {
-                println!(
+                info!(
                     "Executing halted: {} {:?}",
                     self.interrupt_enable,
                     mem.get_interrupt()

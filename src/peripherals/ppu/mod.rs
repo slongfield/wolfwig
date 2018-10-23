@@ -1,7 +1,8 @@
 use peripherals::interrupt::{Interrupt, Irq};
+use peripherals::Dma;
 use sdl2;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 mod display;
 mod fake_display;
@@ -147,6 +148,20 @@ impl LCDStatus {
     }
 }
 
+struct Sprite {
+    y: u8,
+    x: u8,
+    tile: u8,
+    flags: u8,
+}
+
+impl Sprite {
+    // TODO(slongfield): Implement accessors for the other flags.
+    fn palette(&self) {
+        self.flags & (1 << 4) != 0;
+    }
+}
+
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
     display: Box<display::Display>,
@@ -166,8 +181,10 @@ pub struct Ppu {
     lcd_y: u8,
     lcd_y_compare: u8,
     bg_palette: u8,
-    dma: u8,
     mode_cycle: u8,
+    sprites: Vec<Sprite>,
+    before: Instant,
+    dma: Dma,
 }
 
 impl Ppu {
@@ -197,22 +214,27 @@ impl Ppu {
     const WY: u16 = 0xFF4A;
     const WX: u16 = 0xFF4B;
 
+    // Number of milliseconds between frames. Could put this in microseconds?
+    const INTERVAL: u64 = 16;
+
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
             display: Box::new(sdl_display::SdlDisplay::new(video_subsystem)),
             cycle: 0,
-            wait_for_frame: false,
+            wait_for_frame: true,
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
             scroll_x: 0,
             scroll_y: 0,
             lcd_y_compare: 0,
-            dma: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
             bg_palette: 0,
             mode_cycle: 0,
+            sprites: vec![],
+            before: Instant::now(),
+            dma: Dma::new(),
         }
     }
 
@@ -227,15 +249,17 @@ impl Ppu {
             scroll_x: 0,
             scroll_y: 0,
             lcd_y_compare: 0,
-            dma: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
             bg_palette: 0,
             mode_cycle: 0,
+            sprites: vec![],
+            before: Instant::now(),
+            dma: Dma::new(),
         }
     }
 
-    pub fn step(&mut self, interrupt: &mut Interrupt) {
+    pub fn step(&mut self, interrupt: &mut Interrupt, dma: &mut Dma) {
         if self.control.enable {
             match self.status.mode {
                 Mode::Mode0 => self.mode0(interrupt),
@@ -243,6 +267,19 @@ impl Ppu {
                 Mode::Mode2 => self.mode2(interrupt),
                 Mode::Mode3 => self.mode3(interrupt),
             }
+        }
+        if dma.enabled {
+            dma.source += 4;
+            dma.dest += 4;
+            if dma.dest > 0xFE9F {
+                dma.enabled = false;
+            }
+        }
+        if self.dma.enabled {
+            dma.enabled = true;
+            dma.source = self.dma.source;
+            dma.dest = self.dma.dest;
+            self.dma = Dma::new();
         }
     }
 
@@ -271,6 +308,11 @@ impl Ppu {
             Self::SCX => self.scroll_x = val,
             Self::LY => {}
             Self::LYC => self.lcd_y_compare = val,
+            Self::DMA => {
+                self.dma.enabled = true;
+                self.dma.source = u16::from(val) * 0x100;
+                self.dma.dest = 0xFE00;
+            }
             Self::BGP => self.bg_palette = val,
             0xFF40..=0xFF4B => info!(
                 "Attempted to write to unhandled PPU register: {:#04X}",
@@ -325,7 +367,7 @@ impl Ppu {
     // HBlank, do nothing.
     fn mode0(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;
-        if self.mode_cycle == MODE1_CYCLES {
+        if self.mode_cycle == MODE0_CYCLES {
             self.lcd_y += 1;
             self.update_ly_interrupt(interrupt);
             self.mode_cycle = 0;
@@ -352,9 +394,13 @@ impl Ppu {
                 self.update_mode_interrupt(interrupt);
 
                 self.display.show();
-                if self.wait_for_frame && false {
-                    println!("Sleeping!");
-                    thread::sleep(Duration::new(0, 1_000_000_000_u32 / 60));
+                if self.wait_for_frame {
+                    let now = Instant::now();
+                    let dt = u64::from(now.duration_since(self.before).subsec_millis());
+                    if dt < Self::INTERVAL {
+                        thread::sleep(Duration::from_millis(Self::INTERVAL - dt));
+                    }
+                    self.before = now;
                 }
             }
         }
@@ -362,7 +408,10 @@ impl Ppu {
 
     // OAM read, build sprite list.
     fn mode2(&mut self, interrupt: &mut Interrupt) {
-        // TODO(slongfield): Collect sprites.
+        if self.mode_cycle == 0 {
+            self.sprites = vec![];
+            for entry in self.oam.chunks(4) {}
+        }
         self.mode_cycle += 1;
         if self.mode_cycle == MODE2_CYCLES {
             self.mode_cycle = 0;
@@ -377,6 +426,7 @@ impl Ppu {
         // to draw 160 pixels.
         // TODO(slongfield): Model pixel fifo
         if self.mode_cycle % 2 == 0 {
+            let mut pixels: [u8; 8] = [0; 8];
             // TODO(slongfield): Better way to calculate this?
             let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
             let x = u16::from(self.scroll_x.wrapping_add(self.mode_cycle * 4));
@@ -384,26 +434,34 @@ impl Ppu {
             //let x = u16::from((self.mode_cycle) * 4);
             let y_tile = y / 8;
             let x_tile = x / 8;
-            // Get background tiles.
-            let tile_map_start: u16 = match self.control.bg_tile_map {
-                false => 0x1800,
-                true => 0x1C00,
-            };
-            let tile = self
-                .vram
-                .get((tile_map_start + y_tile * 32 + x_tile) as usize)
-                .unwrap_or(&0);
-            let bg_tileset_start = match self.control.bg_tile_set {
-                false => 0x800,
-                true => 0x0,
-            };
-            let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
-            let upper_byte = self.vram[addr];
-            let lower_byte = self.vram[addr + 1];
-            for (index, pixel) in (0..8).rev().enumerate() {
-                let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
+            // Get background pixels.
+            {
+                let tile_map_start: u16 = match self.control.bg_tile_map {
+                    false => 0x1800,
+                    true => 0x1C00,
+                };
+                let tile = self
+                    .vram
+                    .get((tile_map_start + y_tile * 32 + x_tile) as usize)
+                    .unwrap_or(&0);
+                let bg_tileset_start = match self.control.bg_tile_set {
+                    false => 0x800,
+                    true => 0x0,
+                };
+                let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
+                let upper_byte = self.vram[addr];
+                let lower_byte = self.vram[addr + 1];
+                for (index, pixel) in (0..8).rev().enumerate() {
+                    let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
+                    pixels[index] = self.bg_color(pixel);
+                }
+            }
+            // TODO(slongfield): Get window pixels.
+            // TODO(slongfield): Get sprite pixels.
+            if self.control.sprite_enable {}
+            for (index, pixel) in pixels.iter().enumerate() {
                 // TODO(slongfield): Adjust to taste.
-                let color = match self.bg_color(pixel) {
+                let color = match pixel {
                     0b00 => display::Color::RGB(155, 188, 15),
                     0b01 => display::Color::RGB(48, 98, 48),
                     0b10 => display::Color::RGB(139, 172, 15),

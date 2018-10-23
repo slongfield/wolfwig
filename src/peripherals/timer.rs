@@ -57,17 +57,7 @@ impl Timer {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            Self::DIV => {
-                println!(
-                    "divider: {:#04x} counter: {:02x} modulo: {:02x} control: {:02x} enabled: {}",
-                    self.divider,
-                    self.counter,
-                    self.modulo,
-                    self.control,
-                    self.enabled()
-                );
-                (self.divider >> 8) as u8
-            }
+            Self::DIV => (self.divider >> 8) as u8,
             Self::TIMA => self.counter,
             Self::TMA => self.modulo,
             Self::TAC => self.control,

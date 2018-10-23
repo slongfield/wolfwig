@@ -1,7 +1,6 @@
 use sdl2::event::Event as SdlEvent;
 use sdl2::keyboard::Keycode;
 use sdl2::EventPump;
-use std::thread;
 
 use peripherals::joypad::events::{EventHandler, State};
 
