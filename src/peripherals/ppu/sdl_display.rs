@@ -6,9 +6,6 @@ use std::result::Result;
 const MAX_X: u32 = 640;
 const MAX_Y: u32 = 576;
 
-// TODO(slongfield): This display is optimized for showing the background tile memory. Should make
-// it more configurable.
-//
 // Should 'Display' trait actaully be 'Window'?
 pub struct SdlDisplay {
     canvas: sdl2::render::Canvas<sdl2::video::Window>,

@@ -148,6 +148,7 @@ impl LCDStatus {
     }
 }
 
+#[derive(Debug)]
 struct Sprite {
     y: u8,
     x: u8,
@@ -156,6 +157,10 @@ struct Sprite {
 }
 
 impl Sprite {
+    fn new(y: u8, x: u8, tile: u8, flags: u8) -> Self {
+        Self { y, x, tile, flags }
+    }
+
     // TODO(slongfield): Implement accessors for the other flags.
     fn palette(&self) {
         self.flags & (1 << 4) != 0;
@@ -410,7 +415,20 @@ impl Ppu {
     fn mode2(&mut self, interrupt: &mut Interrupt) {
         if self.mode_cycle == 0 {
             self.sprites = vec![];
-            for entry in self.oam.chunks(4) {}
+            for entry in self.oam.chunks(4) {
+                let y = *entry.get(0).unwrap_or(&0);
+                let x = *entry.get(1).unwrap_or(&0);
+                let tile = *entry.get(2).unwrap_or(&0);
+                let flags = *entry.get(3).unwrap_or(&0);
+                // Only add the sprite if it'll be visibile.
+                // TODO(slongfield): Handle double-tall sprites.
+                if self.lcd_y + 8 <= y {
+                    self.sprites.push(Sprite::new(y, x, tile, flags));
+                }
+            }
+            // Reverse sort by X, since smallest X gets highest priority, so want to draw it
+            // last.
+            self.sprites.sort_unstable_by(|a, b| (b.x).cmp(&a.x));
         }
         self.mode_cycle += 1;
         if self.mode_cycle == MODE2_CYCLES {
@@ -427,11 +445,8 @@ impl Ppu {
         // TODO(slongfield): Model pixel fifo
         if self.mode_cycle % 2 == 0 {
             let mut pixels: [u8; 8] = [0; 8];
-            // TODO(slongfield): Better way to calculate this?
             let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
             let x = u16::from(self.scroll_x.wrapping_add(self.mode_cycle * 4));
-            //let y = u16::from(self.lcd_y);
-            //let x = u16::from((self.mode_cycle) * 4);
             let y_tile = y / 8;
             let x_tile = x / 8;
             // Get background pixels.
@@ -457,8 +472,25 @@ impl Ppu {
                 }
             }
             // TODO(slongfield): Get window pixels.
-            // TODO(slongfield): Get sprite pixels.
-            if self.control.sprite_enable {}
+            if self.control.sprite_enable {
+                // TODO(slongfield): Need to handle background pixel pallete data later, since
+                // background 00 should draw over sprite pixels. Thankfully can ignore priority
+                // for Tetris.
+                let x = self.mode_cycle * 4;
+                for sprite in self.sprites.iter() {
+                    if x + 8 < sprite.x {
+                        // (y % 8) is wrong
+                        let addr = usize::from(u16::from(sprite.tile) * 16 + (y % 8) * 2);
+                        let upper_byte = self.vram[addr];
+                        let lower_byte = self.vram[addr + 1];
+                        for (index, pixel) in (0..8).rev().enumerate() {
+                            let pixel =
+                                (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
+                            pixels[index] = self.bg_color(pixel);
+                        }
+                    }
+                }
+            }
             for (index, pixel) in pixels.iter().enumerate() {
                 // TODO(slongfield): Adjust to taste.
                 let color = match pixel {
@@ -470,7 +502,7 @@ impl Ppu {
                 let x = (self.mode_cycle) * 4 + (index as u8);
                 self.display
                     .draw_pixel(x as usize, self.lcd_y as usize, color)
-                    .expect("Could not draw rect");
+                    .expect("Could not draw rectangle");
             }
         }
         self.mode_cycle += 1;
