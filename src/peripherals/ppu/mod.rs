@@ -219,8 +219,8 @@ impl Ppu {
     const WY: u16 = 0xFF4A;
     const WX: u16 = 0xFF4B;
 
-    // Number of milliseconds between frames. Could put this in microseconds?
-    const INTERVAL: u64 = 16;
+    // Number of microseconds between frames.
+    const INTERVAL: u64 = 16_666;
 
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
@@ -401,9 +401,9 @@ impl Ppu {
                 self.display.show();
                 if self.wait_for_frame {
                     let now = Instant::now();
-                    let dt = u64::from(now.duration_since(self.before).subsec_millis());
+                    let dt = u64::from(now.duration_since(self.before).subsec_micros());
                     if dt < Self::INTERVAL {
-                        thread::sleep(Duration::from_millis(Self::INTERVAL - dt));
+                        thread::sleep(Duration::from_micros(Self::INTERVAL - dt));
                     }
                     self.before = now;
                 }
@@ -422,7 +422,7 @@ impl Ppu {
                 let flags = *entry.get(3).unwrap_or(&0);
                 // Only add the sprite if it'll be visibile.
                 // TODO(slongfield): Handle double-tall sprites.
-                if self.lcd_y + 8 <= y {
+                if self.lcd_y + 8 <= y && self.lcd_y + 16 > y {
                     self.sprites.push(Sprite::new(y, x, tile, flags));
                 }
             }
@@ -478,7 +478,7 @@ impl Ppu {
                 // for Tetris.
                 let x = self.mode_cycle * 4;
                 for sprite in self.sprites.iter() {
-                    if x + 8 < sprite.x {
+                    if x + 8 <= sprite.x && x + 16 > sprite.x {
                         // (y % 8) is wrong
                         let addr = usize::from(u16::from(sprite.tile) * 16 + (y % 8) * 2);
                         let upper_byte = self.vram[addr];

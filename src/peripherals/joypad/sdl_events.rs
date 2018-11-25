@@ -41,7 +41,10 @@ impl EventHandler for SdlEvents {
                         Keycode::S => self.state.down = true,
                         Keycode::D => self.state.right = true,
                         Keycode::J => self.state.b = true,
-                        Keycode::K => self.state.a = true,
+                        Keycode::K => {
+                            self.state.a = true;
+                            println!("A keydown");
+                        }
                         Keycode::Backspace => self.state.select = true,
                         Keycode::Space => self.state.start = true,
                         _ => set_keydown = false,
@@ -59,7 +62,10 @@ impl EventHandler for SdlEvents {
                     Keycode::S => self.state.down = false,
                     Keycode::D => self.state.right = false,
                     Keycode::J => self.state.b = false,
-                    Keycode::K => self.state.a = false,
+                    Keycode::K => {
+                        self.state.a = false;
+                        println!("A keyup");
+                    }
                     Keycode::Backspace => self.state.select = false,
                     Keycode::Space => self.state.start = false,
                     _ => {}
