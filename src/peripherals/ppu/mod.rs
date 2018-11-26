@@ -422,7 +422,7 @@ impl Ppu {
                 let flags = *entry.get(3).unwrap_or(&0);
                 // Only add the sprite if it'll be visibile.
                 // TODO(slongfield): Handle double-tall sprites.
-                if self.lcd_y + 8 <= y && self.lcd_y + 16 > y {
+                if self.lcd_y + 8 < y && self.lcd_y + 16 >= y {
                     self.sprites.push(Sprite::new(y, x, tile, flags));
                 }
             }
@@ -478,9 +478,10 @@ impl Ppu {
                 // for Tetris.
                 let x = self.mode_cycle * 4;
                 for sprite in self.sprites.iter() {
+                    // TODO(slongfield): Handle inverted sprites and double-tall sprites.
+                    let tile_y = 7 - u16::from((sprite.y - self.lcd_y + 15) % 8);
                     if x + 8 <= sprite.x && x + 16 > sprite.x {
-                        // (y % 8) is wrong
-                        let addr = usize::from(u16::from(sprite.tile) * 16 + (y % 8) * 2);
+                        let addr = usize::from(u16::from(sprite.tile) * 16 + tile_y * 2);
                         let upper_byte = self.vram[addr];
                         let lower_byte = self.vram[addr + 1];
                         for (index, pixel) in (0..8).rev().enumerate() {

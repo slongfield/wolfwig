@@ -20,8 +20,9 @@ impl Joypad {
     // How frequenlty to check for new updates, in cycles. This is a janky hack, needed
     // because the
     // SDL event polling can't be moved to a different thread, and is kind of slow.
-    // TODO(slongfield): Figure out a beter solution.
-    const UPDATE_INTERVAL: usize = 100;
+    // TODO(slongfield): Figure out a beter solution. Maybe move _all_ of the SDL stuff into a
+    // separate thread?
+    const UPDATE_INTERVAL: usize = 1000;
 
     pub fn new_sdl(events: EventPump) -> Self {
         let events = Box::new(sdl_events::SdlEvents::new(events));
@@ -87,7 +88,6 @@ impl Joypad {
     }
 
     pub fn write(&mut self, addr: u16, val: u8) {
-        println!("Writing to joypad: {:#x}", val);
         match addr {
             Self::JOYP => {
                 // Active-low signals.
@@ -100,7 +100,6 @@ impl Joypad {
     }
 
     pub fn read(&self, addr: u16) -> u8 {
-        println!("Reading from joypad :{:#x}", self.reg);
         match addr {
             Self::JOYP => self.reg,
             addr => panic!("Attempted to write joypad with unmapped addr: {:#x}", addr),
