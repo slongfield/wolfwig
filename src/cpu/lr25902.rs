@@ -93,10 +93,8 @@ impl LR25902 {
                     mem.get_interrupt()
                 );
             }
-        } else {
-            if self.next_op.delay_cycles > 0 {
-                self.next_op.delay_cycles -= 1;
-            }
+        } else if self.next_op.delay_cycles > 0 {
+            self.next_op.delay_cycles -= 1;
         }
         self.cycle += 1;
         self.stopped

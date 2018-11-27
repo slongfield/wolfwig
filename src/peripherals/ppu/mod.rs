@@ -451,18 +451,16 @@ impl Ppu {
             let x_tile = x / 8;
             // Get background pixels.
             {
-                let tile_map_start: u16 = match self.control.bg_tile_map {
-                    false => 0x1800,
-                    true => 0x1C00,
+                let tile_map_start: u16 = if self.control.bg_tile_map {
+                    0x1C00
+                } else {
+                    0x1800
                 };
                 let tile = self
                     .vram
                     .get((tile_map_start + y_tile * 32 + x_tile) as usize)
                     .unwrap_or(&0);
-                let bg_tileset_start = match self.control.bg_tile_set {
-                    false => 0x800,
-                    true => 0x0,
-                };
+                let bg_tileset_start = if self.control.bg_tile_set { 0x0 } else { 0x800 };
                 let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
                 let upper_byte = self.vram[addr];
                 let lower_byte = self.vram[addr + 1];
@@ -517,7 +515,7 @@ impl Ppu {
         if self.lcd_y == self.lcd_y_compare {
             self.status.lyc_eq_ly = true;
         } else {
-            self.status.lyc_eq_ly = true;
+            self.status.lyc_eq_ly = false;
         }
         if self.status.lyc_interrupt {
             interrupt.set_flag(Irq::LCDStat, true);

@@ -113,9 +113,8 @@ impl Peripherals {
 
     pub fn write(&mut self, address: u16, val: u8) {
         if self.dma.enabled {
-            match address {
-                addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
-                _ => {}
+            if let addr @ 0xFF80..=0xFFFE = address {
+                self.mem.write(addr, val);
             }
         } else {
             match address {

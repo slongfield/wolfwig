@@ -1,6 +1,5 @@
-#[macro_use]
-extern crate structopt;
 extern crate env_logger;
+extern crate structopt;
 
 extern crate wolfwig;
 
