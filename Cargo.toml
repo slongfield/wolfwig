@@ -4,11 +4,12 @@ version = "0.0.1"
 authors = ["Stephen Longfield <stephen.longfield@gmail.com>"]
 
 [dependencies]
+bitflags = "1.0"
 clippy =  {version = "*", optional = true}
-log = "0.4"
-structopt = "0.2"
 env_logger = "0.5"
+log = "0.4"
 sdl2 = "0.31"
+structopt = "0.2"
 
 [features]
 default = []
