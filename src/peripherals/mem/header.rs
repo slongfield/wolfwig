@@ -19,6 +19,38 @@ const HEADER_CHECKSUM: (usize, usize) = (0x014D, 0x014D);
 const GLOBAL_CHECKSUM: (usize, usize) = (0x014E, 0x014E);
 const BIT_MASKS: [u8; 8] = [1 << 7, 1 << 6, 1 << 5, 1 << 4, 1 << 3, 1 << 2, 1 << 1, 1];
 
+#[derive(Debug)]
+pub enum CartridgeType {
+    ROM,
+    MBC1,
+    MBC1_RAM,
+    MBC1_RAM_BATTERY,
+    MBC2,
+    MBC2_BATTERY,
+    ROM_RAM,
+    ROM_RAM_BATTERY,
+    MMM01,
+    MMM01_RAM,
+    MMM01_RAM_BATTERY,
+    MBC3_TIMER_BATTERY,
+    MBC3_TIMER_BATTERY_RAM,
+    MBC3,
+    MBC3_RAM,
+    MBC3_RAM_BATTERY,
+    MBC5,
+    MBC5_RAM,
+    MBC5_RAM_BATTERY,
+    MBC5_RUMBLE,
+    MBC5_RUMBLE_RAM,
+    MBC5_RUMBLE_RAM_BATTERY,
+    MBC6,
+    MBC7_SENSOR_RUMBLE_RAM_BATTERY,
+    POCKET_CAMERA,
+    BANDAI_TAMA5,
+    HuC3,
+    HUC1_RAM_BATTERY,
+}
+
 pub struct Header {
     nintendo: Vec<u8>,
     title: String,
@@ -26,7 +58,7 @@ pub struct Header {
     gcb: bool,
     licensee: String,
     sgb: bool,
-    cartrigte_type: String,
+    cartrigte_type: CartridgeType,
     rom_size: u8,
     ram_size: u8,
     destination_code: bool,
@@ -80,15 +112,37 @@ fn decode_extended_license(bytes: &[u8]) -> String {
 }
 
 ///! Decodes the type of the cartrigte.
-/// TODO(slongfield): This probably makes more sense, and is more useful, as an enum.
-fn decode_cartrigte_type(byte: u8) -> String {
+fn decode_cartrigte_type(byte: u8) -> CartridgeType {
     match byte {
-        0x00 => "ROM ONLY".to_string(),
-        0x01 => "MBC1".to_string(),
-        0x02 => "MBC1+RAM".to_string(),
-        0x13 => "MBC3+RAM+BATTERY".to_string(),
-        0x1B => "MBC5+RAM+BATTERY".to_string(),
-        code => format!("Unknown cartrigte type: 0x{:x}", code),
+        0x00 => CartridgeType::ROM,
+        0x01 => CartridgeType::MBC1,
+        0x02 => CartridgeType::MBC1_RAM,
+        0x03 => CartridgeType::MBC1_RAM_BATTERY,
+        0x05 => CartridgeType::MBC2,
+        0x06 => CartridgeType::MBC2_BATTERY,
+        0x08 => CartridgeType::ROM_RAM,
+        0x09 => CartridgeType::ROM_RAM_BATTERY,
+        0x0B => CartridgeType::MMM01,
+        0x0C => CartridgeType::MMM01_RAM,
+        0x0D => CartridgeType::MMM01_RAM_BATTERY,
+        0x0F => CartridgeType::MBC3_TIMER_BATTERY,
+        0x10 => CartridgeType::MBC3_TIMER_BATTERY_RAM,
+        0x11 => CartridgeType::MBC3,
+        0x12 => CartridgeType::MBC3_RAM,
+        0x13 => CartridgeType::MBC3_RAM_BATTERY,
+        0x19 => CartridgeType::MBC5,
+        0x1A => CartridgeType::MBC5_RAM,
+        0x1B => CartridgeType::MBC5_RAM_BATTERY,
+        0x1C => CartridgeType::MBC5_RUMBLE,
+        0x1D => CartridgeType::MBC5_RUMBLE_RAM,
+        0x1E => CartridgeType::MBC5_RUMBLE_RAM_BATTERY,
+        0x20 => CartridgeType::MBC6,
+        0x22 => CartridgeType::MBC7_SENSOR_RUMBLE_RAM_BATTERY,
+        0xFC => CartridgeType::POCKET_CAMERA,
+        0xFD => CartridgeType::BANDAI_TAMA5,
+        0xFE => CartridgeType::HuC3,
+        0xFF => CartridgeType::HUC1_RAM_BATTERY,
+        code => panic!("Unknown cartrigte type: 0x{:x}", code),
     }
 }
 
@@ -145,7 +199,7 @@ impl fmt::Display for Header {
         writeln!(f, "Gameboy Color Game: {}", self.gcb)?;
         writeln!(f, "Licensee: {}", self.licensee)?;
         writeln!(f, "Super Gameboy Support: {}", self.sgb)?;
-        writeln!(f, "Cartridge type: {}", self.cartrigte_type)?;
+        writeln!(f, "Cartridge type: {:?}", self.cartrigte_type)?;
         writeln!(f, "ROM size: 0x{:02x}", self.rom_size)?;
         writeln!(f, "RAM size: 0x{:02x}", self.ram_size)?;
         writeln!(f, "ROM version: 0x{:02x}", self.rom_version)?;
