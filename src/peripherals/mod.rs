@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::mpsc;
 
 mod apu;
+mod cartridge;
 mod interrupt;
 mod joypad;
 pub mod mem;
@@ -32,12 +33,13 @@ impl Dma {
 pub struct Peripherals {
     pub mem: mem::model::Memory,
     apu: apu::Apu,
+    cartridge: Box<cartridge::Cartridge>,
+    dma: Dma,
     interrupt: interrupt::Interrupt,
     joypad: joypad::Joypad,
     ppu: ppu::Ppu,
     serial: serial::Serial,
     timer: timer::Timer,
-    dma: Dma,
 }
 
 fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
@@ -61,15 +63,17 @@ impl Peripherals {
         let interrupt = interrupt::Interrupt::new();
         let timer = timer::Timer::new();
         let dma = Dma::new();
+        let cartridge = cartridge::new(bootrom, rom);
         Ok(Self {
-            mem: mem::model::Memory::new(bootrom, rom),
-            serial: serial::Serial::new(None),
             apu,
-            ppu,
-            joypad,
-            interrupt,
-            timer,
+            cartridge,
             dma,
+            interrupt,
+            joypad,
+            mem: mem::model::Memory::new(),
+            ppu,
+            serial: serial::Serial::new(None),
+            timer,
         })
     }
 
@@ -81,9 +85,11 @@ impl Peripherals {
         let interrupt = interrupt::Interrupt::new();
         let timer = timer::Timer::new();
         let dma = Dma::new();
+        let cartridge = cartridge::new(vec![0; 0x100], vec![0; 0x1000]);
         Self {
-            mem: mem::model::Memory::new(vec![0; 0x100], vec![0; 0x1000]),
+            mem: mem::model::Memory::new(),
             serial: serial::Serial::new(None),
+            cartridge,
             apu,
             ppu,
             joypad,
@@ -118,7 +124,7 @@ impl Peripherals {
             }
         } else {
             match address {
-                0x0000..=0x7FFF => {} // self.cartridge.write()
+                addr @ 0x0000..=0x7FFF => self.cartridge.write(addr, val),
                 addr @ 0x8000..=0x9FFF => self.ppu.write(addr, val),
                 addr @ 0xA000..=0xBFFF => self.mem.write(addr, val),
                 addr @ 0xC000..=0xCFFF => self.mem.write(addr, val),
@@ -134,7 +140,7 @@ impl Peripherals {
                 addr @ 0xFF0F => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
                 addr @ 0xFF40..=0xFF4B => self.ppu.write(addr, val),
-                addr @ 0xFF50 => self.mem.write(addr, val),
+                addr @ 0xFF50 => self.cartridge.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
@@ -154,7 +160,7 @@ impl Peripherals {
             }
         } else {
             match address {
-                addr @ 0x0000..=0x7FFF => self.mem.read(addr),
+                addr @ 0x0000..=0x7FFF => self.cartridge.read(addr),
                 addr @ 0x8000..=0x9FFF => self.ppu.read(addr),
                 addr @ 0xA000..=0xBFFF => self.mem.read(addr),
                 addr @ 0xC000..=0xCFFF => self.mem.read(addr),
@@ -171,7 +177,7 @@ impl Peripherals {
                 addr @ 0xFF0F => self.interrupt.read(addr),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
                 addr @ 0xFF40..=0xFF4B => self.ppu.read(addr),
-                addr @ 0xFF50 => self.mem.read(addr),
+                addr @ 0xFF50 => self.cartridge.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0
@@ -196,6 +202,6 @@ impl Peripherals {
     }
 
     pub fn print_header(&self) {
-        println!("{}", self.mem.header);
+        println!("{}", self.cartridge);
     }
 }

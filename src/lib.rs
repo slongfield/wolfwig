@@ -49,7 +49,7 @@ impl Wolfwig {
     }
 
     pub fn print_header(&self) {
-        println!("{}", self.peripherals.mem.header);
+        self.peripherals.print_header();
     }
 
     pub fn print_registers(&self) {
