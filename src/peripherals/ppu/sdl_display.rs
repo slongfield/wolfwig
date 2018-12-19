@@ -14,7 +14,7 @@ pub struct SdlDisplay {
 impl SdlDisplay {
     pub fn new(video_subsystem: sdl2::VideoSubsystem) -> Self {
         let window = video_subsystem
-            .window("Gameboy Tile Viewer", MAX_X, MAX_Y)
+            .window("Wolfwig Gameboy Emulator", MAX_X, MAX_Y)
             .position_centered()
             .build()
             .unwrap();
