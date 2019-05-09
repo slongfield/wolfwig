@@ -7,8 +7,8 @@ pub struct Serial {
     // status information to both the serial port and to the screen, but testing serial port data
     // is simpler in automated testing.
     channel: Option<mpsc::Sender<u8>>,
+    start: bool,
     data: u8,
-    control: u8,
 }
 
 impl Serial {
@@ -19,18 +19,18 @@ impl Serial {
     pub fn new(channel: Option<mpsc::Sender<u8>>) -> Self {
         Self {
             channel,
-            control: 0,
+            start: false,
             data: 0,
         }
     }
 
     pub fn step(&mut self) {
-        if (self.control & Self::START) != 0 {
+        if self.start {
             if let Some(ref mut sender) = self.channel {
                 // TODO(slongfield): Handle error.
                 sender.send(self.data).unwrap();
             }
-            self.control &= !Self::START;
+            self.start = false;
             // TODO(slongfield): Two-way communication. Normally data is shifted in here from the
             // external source as its shifted out over the course of 8 cycles.
             self.data = 0;
@@ -41,20 +41,20 @@ impl Serial {
         self.channel = Some(tx)
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {
-        match addr {
-            Self::DATA => self.data = val,
-            Self::CONTROL => self.control = val,
-            _ => panic!("Attempted to write Serial with unmapped addr: {:#x}", addr),
-        }
+    pub fn set_start(&mut self, val: bool) {
+        self.start = val;
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
-        match addr {
-            Self::DATA => self.data,
-            Self::CONTROL => self.control,
-            _ => panic!("Attempted to read serial with unmapped addr: {:#x}", addr),
-        }
+    pub fn get_start(&self) -> bool {
+        self.start
+    }
+
+    pub fn set_data(&mut self, val: u8) {
+        self.data = val;
+    }
+
+    pub fn get_data(&self) -> u8 {
+        self.data
     }
 }
 
@@ -67,13 +67,13 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         let mut serial = Serial::new(Some(tx));
 
-        serial.write(Serial::DATA, 0x51);
-        serial.write(Serial::CONTROL, Serial::START);
+        serial.set_data(0x51);
+        serial.set_start(true);
 
         serial.step();
 
-        assert_eq!(serial.read(Serial::DATA), 0);
-        assert_eq!(serial.read(Serial::CONTROL), 0);
+        assert_eq!(serial.get_data(), 0);
+        assert_eq!(serial.get_start(), false);
         assert_eq!(rx.recv().unwrap(), 0x51);
     }
 }

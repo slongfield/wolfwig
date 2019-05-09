@@ -1,6 +1,6 @@
 # My Personal Notes
 
-## Rust commadns to remember:
+## Rust commands to remember:
 
 Lint:
 

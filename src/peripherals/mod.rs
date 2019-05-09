@@ -135,7 +135,8 @@ impl Peripherals {
                 addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
                 // I/O registers.
                 addr @ 0xFF00 => self.joypad.write(addr, val),
-                addr @ 0xFF01..=0xFF02 => self.serial.write(addr, val),
+                0xFF01 => self.serial.set_data(val),
+                0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 addr @ 0xFF04..=0xFF07 => self.timer.write(addr, val),
                 addr @ 0xFF0F => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
@@ -172,7 +173,13 @@ impl Peripherals {
                     0
                 }
                 addr @ 0xFF00 => self.joypad.read(addr),
-                addr @ 0xFF01..=0xFF02 => self.serial.read(addr),
+                0xFF01 => self.serial.get_data(),
+                0xFF02 => {
+                    let mut val = 0xFF;
+                    val &= !(1 << 7);
+                    val |= (self.serial.get_start() as u8) << 7;
+                    val
+                }
                 addr @ 0xFF04..=0xFF07 => self.timer.read(addr),
                 addr @ 0xFF0F => self.interrupt.read(addr),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),

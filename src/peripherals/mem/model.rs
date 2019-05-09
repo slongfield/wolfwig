@@ -57,14 +57,14 @@ mod tests {
 
     #[test]
     fn read_after_write_ram() {
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Memory::new();
         mem.write(0xC042, 41);
         assert_eq!(mem.read(0xC042), 41);
     }
 
     #[test]
     fn read_after_write_shadow_ram() {
-        let mut mem = Memory::new(vec![0; 0x100], vec![0; 0x1000]);
+        let mut mem = Memory::new();
         mem.write(0xE042, 17);
         assert_eq!(mem.read(0xC042), 17);
     }
