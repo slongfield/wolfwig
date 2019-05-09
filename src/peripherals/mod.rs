@@ -124,30 +124,27 @@ impl Peripherals {
             }
         } else {
             match address {
-                addr @ 0x0000..=0x7FFF => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF => self.ppu.write(addr, val),
-                addr @ 0xA000..=0xBFFF => self.mem.write(addr, val),
-                addr @ 0xC000..=0xCFFF => self.mem.write(addr, val),
-                addr @ 0xD000..=0xDFFF => self.mem.write(addr, val),
+                addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                    self.ppu.write(addr, val)
+                }
+                addr @ 0xA000..=0xBFFF
+                | addr @ 0xC000..=0xCFFF
+                | addr @ 0xD000..=0xDFFF
+                | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
                 // Echo RAM, maps back onto 0xC000-0XDDFF
                 addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
-                addr @ 0xFE00..=0xFE9F => self.ppu.write(addr, val),
                 addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
                 // I/O registers.
                 addr @ 0xFF00 => self.joypad.write(addr, val),
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 addr @ 0xFF04..=0xFF07 => self.timer.write(addr, val),
-                addr @ 0xFF0F => self.interrupt.write(addr, val),
+                addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
-                addr @ 0xFF40..=0xFF4B => self.ppu.write(addr, val),
-                addr @ 0xFF50 => self.cartridge.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
-                // High RAM.
-                addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
-                addr @ 0xFFFF => self.interrupt.write(addr, val),
                 _ => {}
             }
         }
@@ -161,13 +158,16 @@ impl Peripherals {
             }
         } else {
             match address {
-                addr @ 0x0000..=0x7FFF => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF => self.ppu.read(addr),
-                addr @ 0xA000..=0xBFFF => self.mem.read(addr),
-                addr @ 0xC000..=0xCFFF => self.mem.read(addr),
-                addr @ 0xD000..=0xDFFF => self.mem.read(addr),
+                addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                    self.ppu.read(addr)
+                }
+                addr @ 0xA000..=0xBFFF
+                | addr @ 0xC000..=0xCFFF
+                | addr @ 0xD000..=0xDFFF
+                | addr @ 0xFF80..=0xFFFE => self.mem.read(addr),
+                // Echo RAM, maps back onto 0xC000-0XDDFF
                 addr @ 0xE000..=0xFDFF => self.read(addr - 0x2000),
-                addr @ 0xFE00..=0xFE9F => self.ppu.read(addr),
                 addr @ 0xFEA0..=0xFEFF => {
                     info!("Read from unmapped memory region: {:#04X}", addr);
                     0
@@ -181,16 +181,12 @@ impl Peripherals {
                     val
                 }
                 addr @ 0xFF04..=0xFF07 => self.timer.read(addr),
-                addr @ 0xFF0F => self.interrupt.read(addr),
+                addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.read(addr),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
-                addr @ 0xFF40..=0xFF4B => self.ppu.read(addr),
-                addr @ 0xFF50 => self.cartridge.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0
                 }
-                addr @ 0xFF80..=0xFFFE => self.mem.read(addr),
-                addr @ 0xFFFF => self.interrupt.read(addr),
                 _ => 0,
             }
         }

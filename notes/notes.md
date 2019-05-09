@@ -4,7 +4,7 @@
 
 Lint:
 
-  * `cargo clean; cargo clippy -- -W clippy_pedantic`
+  * `cargo clean; cargo clippy -- -W clippy::pedantic`
 
 Build:
 

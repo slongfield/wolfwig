@@ -20,14 +20,14 @@ const MODE3_CYCLES: u8 = 43;
 // Written to by 0xFF40
 bitflags! {
     struct LCDControl: u8 {
-        const Enable =        0b1000_0000;
-        const WindowTileMap = 0b0100_0000;
-        const WindowDisplay = 0b0010_0000;
-        const BgTileSet =     0b0001_0000;
-        const BgTileMap =     0b0000_1000;
-        const SpriteSize =    0b0000_0100;
-        const SpriteEnable =  0b0000_0010;
-        const BgEnable =      0b0000_0001;
+        const ENABLE =        0b1000_0000;
+        const WINDOW_TILE_MAP = 0b0100_0000;
+        const WINDOW_DISPLAY = 0b0010_0000;
+        const BG_TILE_SET =     0b0001_0000;
+        const BG_TILE_MAP =     0b0000_1000;
+        const SPRITE_SIZE =    0b0000_0100;
+        const SPRITE_ENABLE =  0b0000_0010;
+        const BG_ENABLE =      0b0000_0001;
     }
 }
 
@@ -41,7 +41,7 @@ impl LCDControl {
         self.insert(Self::from_bits_truncate(val));
     }
 
-    fn read(&self) -> u8 {
+    fn read(self) -> u8 {
         self.bits()
     }
 }
@@ -122,17 +122,11 @@ impl Sprite {
     fn new(y: u8, x: u8, tile: u8, flags: u8) -> Self {
         Self { y, x, tile, flags }
     }
-
-    // TODO(slongfield): Implement accessors for the other flags.
-    fn palette(&self) {
-        self.flags & (1 << 4) != 0;
-    }
 }
 
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
     display: Box<display::Display>,
-    cycle: usize,
     wait_for_frame: bool,
     // Video RAM. TODO(slongfield): In CGB, should be switchable banks.
     // Ox8000-0x9FFF
@@ -173,13 +167,13 @@ impl Ppu {
     // Background palette data
     const BGP: u16 = 0xFF47;
     // Object Palette 0 Data
-    const OBP0: u16 = 0xFF48;
+    // const OBP0: u16 = 0xFF48;
     // Object Palette 1 Data
-    const OBP1: u16 = 0xFF49;
+    // const OBP1: u16 = 0xFF49;
     // Window Y and X position. This is an alternate background that is displayed above the
     // current background if visible.
-    const WY: u16 = 0xFF4A;
-    const WX: u16 = 0xFF4B;
+    // const WY: u16 = 0xFF4A;
+    // const WX: u16 = 0xFF4B;
 
     // Number of microseconds between frames.
     const INTERVAL: u64 = 16_666;
@@ -187,7 +181,6 @@ impl Ppu {
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
             display: Box::new(sdl_display::SdlDisplay::new(video_subsystem)),
-            cycle: 0,
             wait_for_frame: true,
             vram: [0; 0x2000],
             oam: [0; 0x100],
@@ -208,7 +201,6 @@ impl Ppu {
     pub fn new_fake() -> Self {
         Self {
             display: Box::new(fake_display::FakeDisplay::new()),
-            cycle: 0,
             wait_for_frame: false,
             vram: [0; 0x2000],
             oam: [0; 0x100],
@@ -227,7 +219,7 @@ impl Ppu {
     }
 
     pub fn step(&mut self, interrupt: &mut Interrupt, dma: &mut Dma) {
-        if self.control.contains(LCDControl::Enable) {
+        if self.control.contains(LCDControl::ENABLE) {
             match self.status.mode {
                 Mode::Mode0 => self.mode0(interrupt),
                 Mode::Mode1 => self.mode1(interrupt),
@@ -413,7 +405,7 @@ impl Ppu {
             let x_tile = x / 8;
             // Get background pixels.
             {
-                let tile_map_start: u16 = if self.control.contains(LCDControl::BgTileMap) {
+                let tile_map_start: u16 = if self.control.contains(LCDControl::BG_TILE_MAP) {
                     0x1C00
                 } else {
                     0x1800
@@ -422,7 +414,7 @@ impl Ppu {
                     .vram
                     .get((tile_map_start + y_tile * 32 + x_tile) as usize)
                     .unwrap_or(&0);
-                let bg_tileset_start = if self.control.contains(LCDControl::BgTileSet) {
+                let bg_tileset_start = if self.control.contains(LCDControl::BG_TILE_SET) {
                     0x0
                 } else {
                     0x800
@@ -436,15 +428,15 @@ impl Ppu {
                 }
             }
             // TODO(slongfield): Get window pixels.
-            if self.control.contains(LCDControl::SpriteEnable) {
+            if self.control.contains(LCDControl::SPRITE_ENABLE) {
                 // TODO(slongfield): Need to handle background pixel pallete data later, since
                 // background 00 should draw over sprite pixels. Thankfully can ignore priority
                 // for Tetris.
-                let x = self.mode_cycle * 4;
-                for sprite in self.sprites.iter() {
+                let lcd_x = self.mode_cycle * 4;
+                for sprite in &self.sprites {
                     // TODO(slongfield): Handle inverted sprites and double-tall sprites.
                     let tile_y = 7 - u16::from((sprite.y - self.lcd_y + 15) % 8);
-                    if x + 8 <= sprite.x && x + 16 > sprite.x {
+                    if lcd_x + 8 <= sprite.x && lcd_x + 16 > sprite.x {
                         let addr = usize::from(u16::from(sprite.tile) * 16 + tile_y * 2);
                         let upper_byte = self.vram[addr];
                         let lower_byte = self.vram[addr + 1];
