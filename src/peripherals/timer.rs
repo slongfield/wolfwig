@@ -57,6 +57,7 @@ impl Timer {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
+            // TODO(slongfield): Use try_into to avoid clippy::pedantic warning?
             Self::DIV => (self.divider >> 8) as u8,
             Self::TIMA => self.counter,
             Self::TMA => self.modulo,

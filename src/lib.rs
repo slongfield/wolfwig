@@ -67,4 +67,8 @@ impl Wolfwig {
     pub fn print_reg16(&self, reg: cpu::registers::Reg16) {
         println!("0x{:02X}", self.cpu.regs.read16(reg));
     }
+
+    pub fn go_fast(&mut self) {
+        self.peripherals.go_fast();
+    }
 }

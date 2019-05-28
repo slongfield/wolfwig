@@ -323,6 +323,10 @@ impl Ppu {
         }
     }
 
+    pub fn go_fast(&mut self) {
+        self.wait_for_frame = false;
+    }
+
     // HBlank, do nothing.
     fn mode0(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;

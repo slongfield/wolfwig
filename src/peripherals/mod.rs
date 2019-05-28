@@ -207,4 +207,8 @@ impl Peripherals {
     pub fn print_header(&self) {
         println!("{}", self.cartridge);
     }
+
+    pub fn go_fast(&mut self) {
+        self.ppu.go_fast();
+    }
 }

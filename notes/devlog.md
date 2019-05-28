@@ -4,6 +4,11 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 ## Ideas
 
+### 2010-05-27
+
+* Using mooneye/misc/bits/unused\_hwio to check that the new registers are hooked up correctly.
+* Time gets away from me quickly.
+
 ### 2019-05-08
 
 * Starting to get back into this after the move. Next goal is to improve the register access by

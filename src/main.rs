@@ -24,6 +24,10 @@ struct Opt {
     /// Should bytes printed sent out the serial port be printed to the console?
     #[structopt(short = "p", long = "print_serial")]
     print_serial: bool,
+
+    /// Should the emulator go fast (i.e., ignore all speed limits?).
+    #[structopt(short = "f", long = "go_fast")]
+    go_fast: bool,
 }
 
 fn main() {
@@ -32,6 +36,9 @@ fn main() {
     let mut wolfwig = wolfwig::Wolfwig::from_files(&opt.bootrom, &opt.rom).unwrap();
     if opt.print_serial {
         wolfwig.start_print_serial()
+    }
+    if opt.go_fast {
+        wolfwig.go_fast();
     }
 
     wolfwig.print_header();
