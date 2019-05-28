@@ -160,8 +160,8 @@ impl Peripherals {
                 // I/O registers.
                 0xFF00 => {
                     write_reg!(val:
-                               5..5 => self.joypad.set_select_button
-                               4..4 => self.joypad.set_select_direction,
+                        5..5 => self.joypad.set_select_button,
+                        4..4 => self.joypad.set_select_direction
                     );
                     self.joypad.update()
                 }
