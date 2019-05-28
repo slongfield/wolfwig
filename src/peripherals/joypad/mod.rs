@@ -71,7 +71,7 @@ impl Joypad {
         self.state
     }
 
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         if self.events.get_state().keydown {}
         let state = self.events.get_state();
 
