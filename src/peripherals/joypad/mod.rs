@@ -26,8 +26,8 @@ impl Joypad {
         let events = Box::new(sdl_events::SdlEvents::new(events));
         Self {
             events,
-            select_button: false,
-            select_direction: false,
+            select_button: true,
+            select_direction: true,
             state: 0xF,
             counter: 0,
         }
@@ -37,8 +37,8 @@ impl Joypad {
         let events = Box::new(fake_events::FakeEvents::new());
         Self {
             events,
-            select_button: false,
-            select_direction: false,
+            select_button: true,
+            select_direction: true,
             state: 0xF,
             counter: 0,
         }
@@ -47,15 +47,18 @@ impl Joypad {
     pub fn step(&mut self) {
         self.counter += 1;
         if self.counter == Self::UPDATE_INTERVAL {
+            debug!("Updating state.");
             self.update();
         }
     }
 
     pub fn set_select_direction(&mut self, val: u8) {
+        debug!("Setting select direction to {}", val);
         self.select_direction = val != 0
     }
 
     pub fn set_select_button(&mut self, val: u8) {
+        debug!("Setting select button to {}", val);
         self.select_button = val != 0
     }
 
@@ -71,7 +74,7 @@ impl Joypad {
         self.state
     }
 
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         if self.events.get_state().keydown {}
         let state = self.events.get_state();
 
@@ -83,6 +86,7 @@ impl Joypad {
             // TODO(slongfield): Set interrupt.
         }
 
+        self.state = 0;
         if !self.select_button {
             self.state |= u8::from(state.start) << 3;
             self.state |= u8::from(state.select) << 2;

@@ -9,6 +9,8 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 * Using mooneye/misc/bits/unused\_hwio to check that the new registers are hooked up correctly.
 * Time gets away from me quickly.
 * Screwed something up, and Tetris started flashing as soon as it loaded. But what?
+  * Apparently, not calling joypad.update() on write screwed it up. I guess it was looking for
+    those values to get cleared?
 
 ### 2019-05-08
 

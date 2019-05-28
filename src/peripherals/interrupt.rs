@@ -47,8 +47,8 @@ impl Interrupt {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            Self::FLAG => self.flag,
-            Self::ENABLE => self.enable,
+            Self::FLAG => 0xE0 | self.flag,
+            Self::ENABLE => 0xE0 | self.enable,
             _ => panic!(
                 "Attempted to read interrupt with unmapped addr: {:#x}",
                 addr

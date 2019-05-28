@@ -52,10 +52,10 @@ fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
 
 // Macro for fanning writes from a register out to various setters.
 macro_rules! write_reg {
-    ($val:ident => $( $msb:literal .. $lsb:literal =>
-                      $self:ident.$mod:ident.$field:ident),* ) => {{
+    ($val:ident: $( $msb:literal .. $lsb:literal =>
+                    $self:ident.$mod:ident.$field:ident),* ) => {{
         $(
-            $self.$mod.$field($val & ((1 << ($msb-$lsb+1)) - 1 << $lsb));
+            $self.$mod.$field(($val & ((1 << ($msb-$lsb+1)) - 1 << $lsb)) >> $lsb);
         )*
     }}
 }
@@ -66,7 +66,7 @@ macro_rules! read_reg {
         let mut val = 0xFF;
         $(
             val &= !(((1 << ($msb-$lsb+1)) - 1) << $lsb);
-            val |= (u8::from($self.$mod.$field()) & ((1 << ($msb-$lsb+1)) - 1))  << $lsb;
+            val |= (u8::from($self.$mod.$field()) & ((1 << ($msb-$lsb+1)) - 1)) << $lsb;
         )*
             val
     }}
@@ -158,18 +158,21 @@ impl Peripherals {
                 addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
                 addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
                 // I/O registers.
-                0xFF00 => write_reg!(val =>
-                                     5..5 => self.joypad.set_select_direction,
-                                     4..4 => self.joypad.set_select_button
-                ),
+                0xFF00 => {
+                    write_reg!(val:
+                               5..5 => self.joypad.set_select_button
+                               4..4 => self.joypad.set_select_direction,
+                    );
+                    self.joypad.update()
+                }
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 0xFF04 => self.timer.set_divider(),
                 0xFF05 => self.timer.set_counter(val),
                 0xFF06 => self.timer.set_modulo(val),
-                0xFF07 => write_reg!(val =>
-                           2..2 => self.timer.set_start,
-                           1..0 => self.timer.set_input_clock
+                0xFF07 => write_reg!(val:
+                                     2..2 => self.timer.set_start,
+                                     1..0 => self.timer.set_input_clock
                 ),
                 addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
