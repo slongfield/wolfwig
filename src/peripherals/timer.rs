@@ -15,11 +15,6 @@ pub struct Timer {
 }
 
 impl Timer {
-    const DIV: u16 = 0xFF04;
-    const TIMA: u16 = 0xFF05;
-    const TMA: u16 = 0xFF06;
-    const TAC: u16 = 0xFF07;
-
     pub fn new() -> Self {
         Self {
             divider: 0,
@@ -35,6 +30,7 @@ impl Timer {
     pub fn step(&mut self, interrupt: &mut Interrupt) {
         if self.set_counter {
             self.counter = self.modulo;
+            debug!("Setting off timer interrupt");
             interrupt.set_flag(Irq::Timer, true);
         }
         if self.start && self.increment_bit_unset() && self.prev_increment_bit {
@@ -68,7 +64,7 @@ impl Timer {
     }
 
     pub fn divider(&self) -> u8 {
-        self.divider.to_be_bytes()[1]
+        (self.divider >> 8) as u8
     }
 
     pub fn counter(&self) -> u8 {
@@ -80,6 +76,7 @@ impl Timer {
     }
 
     pub fn start(&self) -> u8 {
+        debug!("Starting counter");
         u8::from(self.start)
     }
 

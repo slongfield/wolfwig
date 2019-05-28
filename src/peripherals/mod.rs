@@ -50,6 +50,28 @@ fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
     Ok(buffer)
 }
 
+// Macro for fanning writes from a register out to various setters.
+macro_rules! write_reg {
+    ($val:ident => $( $msb:literal .. $lsb:literal =>
+                      $self:ident.$mod:ident.$field:ident),* ) => {{
+        $(
+            $self.$mod.$field($val & ((1 << ($msb-$lsb+1)) - 1 << $lsb));
+        )*
+    }}
+}
+
+// Macro for fanning reads from a reigster in from various getters. Unmapped bits are read as 1.
+macro_rules! read_reg {
+    ( $( $msb:literal .. $lsb:literal => $self:ident.$mod:ident.$field:ident), * ) => {{
+        let mut val = 0xFF;
+        $(
+            val &= !(((1 << ($msb-$lsb+1)) - 1) << $lsb);
+            val |= (u8::from($self.$mod.$field()) & ((1 << ($msb-$lsb+1)) - 1))  << $lsb;
+        )*
+            val
+    }}
+}
+
 impl Peripherals {
     pub fn from_files(bootrom: &Path, rom: &Path) -> Result<Self, io::Error> {
         let bootrom = read_rom_from_file(bootrom)?;
@@ -136,17 +158,19 @@ impl Peripherals {
                 addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
                 addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
                 // I/O registers.
-                addr @ 0xFF00 => self.joypad.write(addr, val),
+                0xFF00 => write_reg!(val =>
+                                     5..5 => self.joypad.set_select_direction,
+                                     4..4 => self.joypad.set_select_button
+                ),
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 0xFF04 => self.timer.set_divider(),
                 0xFF05 => self.timer.set_counter(val),
                 0xFF06 => self.timer.set_modulo(val),
-                0xFF07 => {
-                    // TODO(slongfield): This should be a macro.
-                    self.timer.set_start((val & 0b100) >> 2);
-                    self.timer.set_input_clock(val & 0b11);
-                }
+                0xFF07 => write_reg!(val =>
+                           2..2 => self.timer.set_start,
+                           1..0 => self.timer.set_input_clock
+                ),
                 addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
@@ -179,27 +203,20 @@ impl Peripherals {
                     info!("Read from unmapped memory region: {:#04X}", addr);
                     0
                 }
-                addr @ 0xFF00 => self.joypad.read(addr),
+                0xFF00 => read_reg!(
+                    5..5 => self.joypad.select_direction,
+                    4..4 => self.joypad.select_button,
+                    3..0 => self.joypad.state
+                ),
                 0xFF01 => self.serial.data(),
-                0xFF02 => {
-                    // TODO(slongfield): This should be a macro.
-                    let mut val = 0xFF;
-                    val &= !(1 << 7);
-                    val |= u8::from(self.serial.start()) << 7;
-                    val
-                }
+                0xFF02 => read_reg!(7..7 => self.serial.start),
                 0xFF04 => self.timer.divider(),
                 0xFF05 => self.timer.counter(),
                 0xFF06 => self.timer.modulo(),
-                0xFF07 => {
-                    // TODO(slongfield): This should be a macro.
-                    let mut val = 0xFF;
-                    val &= !(1 << 2);
-                    val |= self.timer.start() << 2;
-                    val &= !3;
-                    val |= self.timer.input_clock();
-                    val
-                }
+                0xFF07 => read_reg!(
+                    2..2 => self.timer.start,
+                    1..0 => self.timer.input_clock
+                ),
                 addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.read(addr),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {

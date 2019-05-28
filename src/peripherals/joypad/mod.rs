@@ -10,13 +10,11 @@ pub struct Joypad {
     events: Box<events::EventHandler>,
     select_button: bool,
     select_direction: bool,
-    reg: u8,
+    state: u8,
     counter: usize,
 }
 
 impl Joypad {
-    const JOYP: u16 = 0xFF00;
-
     // How frequenlty to check for new updates, in cycles. This is a janky hack, needed
     // because the
     // SDL event polling can't be moved to a different thread, and is kind of slow.
@@ -28,9 +26,9 @@ impl Joypad {
         let events = Box::new(sdl_events::SdlEvents::new(events));
         Self {
             events,
-            select_button: true,
-            select_direction: true,
-            reg: 0xCF,
+            select_button: false,
+            select_direction: false,
+            state: 0xF,
             counter: 0,
         }
     }
@@ -39,9 +37,9 @@ impl Joypad {
         let events = Box::new(fake_events::FakeEvents::new());
         Self {
             events,
-            select_button: true,
-            select_direction: true,
-            reg: 0xCF,
+            select_button: false,
+            select_direction: false,
+            state: 0xF,
             counter: 0,
         }
     }
@@ -51,6 +49,26 @@ impl Joypad {
         if self.counter == Self::UPDATE_INTERVAL {
             self.update();
         }
+    }
+
+    pub fn set_select_direction(&mut self, val: u8) {
+        self.select_direction = val != 0
+    }
+
+    pub fn set_select_button(&mut self, val: u8) {
+        self.select_button = val != 0
+    }
+
+    pub fn select_direction(&self) -> bool {
+        self.select_direction
+    }
+
+    pub fn select_button(&self) -> bool {
+        self.select_button
+    }
+
+    pub fn state(&self) -> u8 {
+        self.state
     }
 
     fn update(&mut self) {
@@ -65,44 +83,21 @@ impl Joypad {
             // TODO(slongfield): Set interrupt.
         }
 
-        // All of the joypad signals are active-low.
-        self.reg = 0x00;
-        self.reg |= u8::from(self.select_button) << 5;
-        self.reg |= u8::from(self.select_direction) << 4;
-
-        if self.select_button {
-            self.reg |= u8::from(state.start) << 3;
-            self.reg |= u8::from(state.select) << 2;
-            self.reg |= u8::from(state.b) << 1;
-            self.reg |= u8::from(state.a);
+        if !self.select_button {
+            self.state |= u8::from(state.start) << 3;
+            self.state |= u8::from(state.select) << 2;
+            self.state |= u8::from(state.b) << 1;
+            self.state |= u8::from(state.a);
         }
-        if self.select_direction {
-            self.reg |= u8::from(state.down) << 3;
-            self.reg |= u8::from(state.up) << 2;
-            self.reg |= u8::from(state.left) << 1;
-            self.reg |= u8::from(state.right);
+        if !self.select_direction {
+            self.state |= u8::from(state.down) << 3;
+            self.state |= u8::from(state.up) << 2;
+            self.state |= u8::from(state.left) << 1;
+            self.state |= u8::from(state.right);
         }
-        self.reg = !self.reg;
+        // It's active low, so invert
+        self.state = !self.state;
         self.events.clear_keydown();
         self.counter = 0;
-    }
-
-    pub fn write(&mut self, addr: u16, val: u8) {
-        match addr {
-            Self::JOYP => {
-                // Active-low signals.
-                self.select_button = (val & (1 << 5)) == 0;
-                self.select_direction = (val & (1 << 4)) == 0;
-                self.update();
-            }
-            addr => panic!("Attempted to write joypad with unmapped addr: {:#x}", addr),
-        }
-    }
-
-    pub fn read(&self, addr: u16) -> u8 {
-        match addr {
-            Self::JOYP => self.reg,
-            addr => panic!("Attempted to write joypad with unmapped addr: {:#x}", addr),
-        }
     }
 }

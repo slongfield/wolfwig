@@ -8,6 +8,7 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 * Using mooneye/misc/bits/unused\_hwio to check that the new registers are hooked up correctly.
 * Time gets away from me quickly.
+* Screwed something up, and Tetris started flashing as soon as it loaded. But what?
 
 ### 2019-05-08
 
