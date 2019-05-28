@@ -8,7 +8,8 @@ pub struct Timer {
     divider: u16,
     counter: u8,
     modulo: u8,
-    control: u8,
+    start: bool,
+    input_clock: u8,
     set_counter: bool,
     prev_increment_bit: bool,
 }
@@ -24,7 +25,8 @@ impl Timer {
             divider: 0,
             counter: 0,
             modulo: 0,
-            control: 0,
+            start: false,
+            input_clock: 0,
             prev_increment_bit: false,
             set_counter: false,
         }
@@ -35,7 +37,7 @@ impl Timer {
             self.counter = self.modulo;
             interrupt.set_flag(Irq::Timer, true);
         }
-        if self.enabled() && self.increment_bit_unset() && self.prev_increment_bit {
+        if self.start && self.increment_bit_unset() && self.prev_increment_bit {
             self.counter = self.counter.wrapping_add(1);
             if self.counter == 0 {
                 self.set_counter = true;
@@ -45,29 +47,48 @@ impl Timer {
         self.divider = self.divider.wrapping_add(4);
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {
-        match addr {
-            Self::DIV => self.divider = 0,
-            Self::TIMA => self.counter = val,
-            Self::TMA => self.modulo = val,
-            Self::TAC => self.control = val,
-            addr => panic!("Attempted to write Timer with unmapped addr: {:#x}", addr),
-        }
+    pub fn set_divider(&mut self) {
+        self.divider = 0;
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
-        match addr {
-            // TODO(slongfield): Use try_into to avoid clippy::pedantic warning?
-            Self::DIV => (self.divider >> 8) as u8,
-            Self::TIMA => self.counter,
-            Self::TMA => self.modulo,
-            Self::TAC => self.control,
-            addr => panic!("Attempted to read Timer with unmapped addr: {:#x}", addr),
-        }
+    pub fn set_counter(&mut self, val: u8) {
+        self.counter = val;
+    }
+
+    pub fn set_modulo(&mut self, val: u8) {
+        self.modulo = val;
+    }
+
+    pub fn set_start(&mut self, val: u8) {
+        self.start = val != 0;
+    }
+
+    pub fn set_input_clock(&mut self, val: u8) {
+        self.input_clock = val & 0x3;
+    }
+
+    pub fn divider(&self) -> u8 {
+        self.divider.to_be_bytes()[1]
+    }
+
+    pub fn counter(&self) -> u8 {
+        self.counter
+    }
+
+    pub fn modulo(&self) -> u8 {
+        self.modulo
+    }
+
+    pub fn start(&self) -> u8 {
+        u8::from(self.start)
+    }
+
+    pub fn input_clock(&self) -> u8 {
+        self.input_clock
     }
 
     fn increment_bit_unset(&self) -> bool {
-        let bit = match self.control & 0x3 {
+        let bit = match self.input_clock {
             0b00 => 8,
             0b01 => 2,
             0b10 => 4,
@@ -75,9 +96,5 @@ impl Timer {
             _ => unreachable!(),
         };
         self.divider & (1 << bit) == 0
-    }
-
-    fn enabled(&self) -> bool {
-        self.control & (1 << 2) != 0
     }
 }

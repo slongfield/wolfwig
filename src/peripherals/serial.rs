@@ -12,10 +12,6 @@ pub struct Serial {
 }
 
 impl Serial {
-    const DATA: u16 = 0xFF01;
-    const CONTROL: u16 = 0xFF02;
-    const START: u8 = 1 << 7;
-
     pub fn new(channel: Option<mpsc::Sender<u8>>) -> Self {
         Self {
             channel,
@@ -45,7 +41,7 @@ impl Serial {
         self.start = val;
     }
 
-    pub fn get_start(&self) -> bool {
+    pub fn start(&self) -> bool {
         self.start
     }
 
@@ -53,7 +49,7 @@ impl Serial {
         self.data = val;
     }
 
-    pub fn get_data(&self) -> u8 {
+    pub fn data(&self) -> u8 {
         self.data
     }
 }

@@ -139,7 +139,14 @@ impl Peripherals {
                 addr @ 0xFF00 => self.joypad.write(addr, val),
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
-                addr @ 0xFF04..=0xFF07 => self.timer.write(addr, val),
+                0xFF04 => self.timer.set_divider(),
+                0xFF05 => self.timer.set_counter(val),
+                0xFF06 => self.timer.set_modulo(val),
+                0xFF07 => {
+                    // TODO(slongfield): This should be a macro.
+                    self.timer.set_start((val & 0b100) >> 2);
+                    self.timer.set_input_clock(val & 0b11);
+                }
                 addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.write(addr, val),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
@@ -173,14 +180,26 @@ impl Peripherals {
                     0
                 }
                 addr @ 0xFF00 => self.joypad.read(addr),
-                0xFF01 => self.serial.get_data(),
+                0xFF01 => self.serial.data(),
                 0xFF02 => {
+                    // TODO(slongfield): This should be a macro.
                     let mut val = 0xFF;
                     val &= !(1 << 7);
-                    val |= (self.serial.get_start() as u8) << 7;
+                    val |= u8::from(self.serial.start()) << 7;
                     val
                 }
-                addr @ 0xFF04..=0xFF07 => self.timer.read(addr),
+                0xFF04 => self.timer.divider(),
+                0xFF05 => self.timer.counter(),
+                0xFF06 => self.timer.modulo(),
+                0xFF07 => {
+                    // TODO(slongfield): This should be a macro.
+                    let mut val = 0xFF;
+                    val &= !(1 << 2);
+                    val |= self.timer.start() << 2;
+                    val &= !3;
+                    val |= self.timer.input_clock();
+                    val
+                }
                 addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.read(addr),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
