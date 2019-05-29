@@ -1209,9 +1209,6 @@ fn decode_extended(opcode: u8) -> (Op, usize, usize) {
         0xFD => (Alu8Op::set_bit(Alu8Data::Reg(L), 7), 2),
         0xFE => (Alu8Op::set_bit(Alu8Data::Addr(HL), 7), 4),
         0xFF => (Alu8Op::set_bit(Alu8Data::Reg(A), 7), 2),
-
-        // Needed to satisfy exhaustive checker, but completely unreachable.
-        _ => panic!("Invalid opcode!"),
     };
 
     (Op::Alu8(alu_op), 2, time)

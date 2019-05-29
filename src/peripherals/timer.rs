@@ -1,4 +1,4 @@
-use peripherals::interrupt::{Interrupt, Irq};
+use peripherals::interrupt::Interrupt;
 
 // Note: This timer is based off of the DMG timer in the Cycle-Accurate GameBoy Docs v 0.0.X by
 // AntonioND. It should accurate represent the bugs in the DMG timer, but not accurately represent
@@ -31,7 +31,7 @@ impl Timer {
         if self.set_counter {
             self.counter = self.modulo;
             debug!("Setting off timer interrupt");
-            interrupt.set_flag(Irq::Timer, true);
+            interrupt.set_timer_trigger(1);
         }
         if self.start && self.increment_bit_unset() && self.prev_increment_bit {
             self.counter = self.counter.wrapping_add(1);

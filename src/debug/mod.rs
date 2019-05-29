@@ -104,7 +104,7 @@ impl Debug {
             print!("> ");
             stdout().flush().expect("Could not flush stdout");
             stdin().read_line(&mut buf).unwrap();
-            let mut split = buf.trim_right().split(' ');
+            let mut split = buf.trim_end().split(' ');
             match split.next() {
                 Some("r") | Some("run") => {
                     if let Some(times) = next_as_int32(&mut split) {

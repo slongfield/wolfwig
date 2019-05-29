@@ -68,8 +68,8 @@ mod tests {
 
         serial.step();
 
-        assert_eq!(serial.get_data(), 0);
-        assert_eq!(serial.get_start(), false);
+        assert_eq!(serial.data(), 0);
+        assert_eq!(serial.start(), false);
         assert_eq!(rx.recv().unwrap(), 0x51);
     }
 }

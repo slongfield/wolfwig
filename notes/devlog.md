@@ -4,6 +4,31 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 ## Ideas
 
+### Scripting
+
+* I should add a scripting interfacea
+* romhacking.net
+ * Looks like colorizing games is a popular hack.
+
+### Modules
+
+#### Pixel Processing Unit
+
+* Could we implement something like [WideNes](http://prilik.com/blog/2018/08/24/wideNES.html) for
+  the gameboy?
+
+#### Audio Processing Unit
+
+* Can the APU output MIDI directly?
+
+## Log
+
+### 2010-05-28
+
+* Applying that new macro bit by bit.
+* Would be nice to have a macro to create getters and setters, but apparently can't concatinate
+  names together in macros. :/
+
 ### 2010-05-27
 
 * Using mooneye/misc/bits/unused\_hwio to check that the new registers are hooked up correctly.
@@ -11,6 +36,8 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 * Screwed something up, and Tetris started flashing as soon as it loaded. But what?
   * Apparently, not calling joypad.update() on write screwed it up. I guess it was looking for
     those values to get cleared?
+  * Bad joypad update caused it to appear like start and select were held down, which soft-resets
+    the system, and Tetris respects that soft-reset.
 
 ### 2019-05-08
 

@@ -1,4 +1,4 @@
-use peripherals::interrupt::{Interrupt, Irq};
+use peripherals::interrupt::Interrupt;
 use peripherals::Dma;
 use sdl2;
 use std::thread;
@@ -224,7 +224,7 @@ impl Ppu {
                 Mode::Mode0 => self.mode0(interrupt),
                 Mode::Mode1 => self.mode1(interrupt),
                 Mode::Mode2 => self.mode2(interrupt),
-                Mode::Mode3 => self.mode3(interrupt),
+                Mode::Mode3 => self.mode3(),
             }
         }
         if dma.enabled {
@@ -397,7 +397,7 @@ impl Ppu {
     }
 
     // Draw mode!
-    fn mode3(&mut self, interrupt: &mut Interrupt) {
+    fn mode3(&mut self) {
         // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
         // to draw 160 pixels.
         // TODO(slongfield): Model pixel fifo
@@ -480,7 +480,7 @@ impl Ppu {
             self.status.lyc_eq_ly = false;
         }
         if self.status.lyc_interrupt {
-            interrupt.set_flag(Irq::LCDStat, true);
+            interrupt.set_lcd_stat_trigger(1)
         }
     }
 
@@ -488,18 +488,18 @@ impl Ppu {
         match self.status.mode {
             Mode::Mode0 => {
                 if self.status.mode0_interrupt {
-                    interrupt.set_flag(Irq::LCDStat, true);
+                    interrupt.set_lcd_stat_trigger(1)
                 }
             }
             Mode::Mode1 => {
                 if self.status.mode1_interrupt {
-                    interrupt.set_flag(Irq::LCDStat, true);
+                    interrupt.set_lcd_stat_trigger(1)
                 }
-                interrupt.set_flag(Irq::Vblank, true);
+                interrupt.set_vblank_trigger(1)
             }
             Mode::Mode2 => {
                 if self.status.mode2_interrupt {
-                    interrupt.set_flag(Irq::LCDStat, true);
+                    interrupt.set_lcd_stat_trigger(1)
                 }
             }
             Mode::Mode3 => {}
