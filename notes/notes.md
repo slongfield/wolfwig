@@ -1,14 +1,14 @@
-# My Personal Notes
+# slongfield@'s notes on Rust programming and Gameboy
 
 ## Rust commands to remember:
 
 Lint:
 
-  * `cargo clean; cargo clippy -- -W clippy::pedantic`
+ * `cargo clean; cargo clippy -- -W clippy::pedantic`
 
 Build:
 
-  * `cargo build --release`
+ * `cargo build --release`
 
 Run:
 
@@ -27,3 +27,8 @@ RUST_LOG=wolfwig::peripherals::timer=debug ./target/release/wolfwig
 
 Gekkio's Mooneye GB:
   * https://github.com/Gekkio/mooneye-gb
+
+## Gameboy reminders
+
+ * If a game senses that select+start are pressed at the same time, it will attempt a 'soft reset',
+   which may look very odd.

@@ -1,29 +1,28 @@
 ///! Interrupt handler peripheral.
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Irq {
-    Vblank,
-    LCDStat,
-    Timer,
-    Serial,
-    Joypad,
+struct Flag {
+    enable: bool,
+    trigger: bool,
+}
+
+impl Flag {
+    pub fn new() -> Self {
+        Self {
+            enable: false,
+            trigger: false,
+        }
+    }
 }
 
 pub struct Interrupt {
-    enable: u8,
-    flag: u8,
+    vblank: Flag,
+    lcd_stat: Flag,
+    timer: Flag,
+    serial: Flag,
+    joypad: Flag,
 }
 
 impl Interrupt {
-    const FLAG: u16 = 0xFF0F;
-    const ENABLE: u16 = 0xFFFF;
-
-    const VBLANK: u8 = 1;
-    const LCD_STAT: u8 = 1 << 1;
-    const TIMER: u8 = 1 << 2;
-    const SERIAL: u8 = 1 << 3;
-    const JOYPAD: u8 = 1 << 4;
-
     const VBLANK_PC: u16 = 0x40;
     const LCD_STAT_PC: u16 = 0x48;
     const TIMER_PC: u16 = 0x50;
@@ -31,77 +30,111 @@ impl Interrupt {
     const JOYPAD_PC: u16 = 0x60;
 
     pub fn new() -> Self {
-        Self { enable: 0, flag: 0 }
-    }
-
-    pub fn write(&mut self, addr: u16, val: u8) {
-        match addr {
-            Self::FLAG => self.flag = val,
-            Self::ENABLE => self.enable = val,
-            _ => panic!(
-                "Attempted to write interrupt with unmapped addr: {:#x}",
-                addr
-            ),
+        Self {
+            vblank: Flag::new(),
+            lcd_stat: Flag::new(),
+            timer: Flag::new(),
+            serial: Flag::new(),
+            joypad: Flag::new(),
         }
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
-        match addr {
-            Self::FLAG => 0xE0 | self.flag,
-            Self::ENABLE => 0xE0 | self.enable,
-            _ => panic!(
-                "Attempted to read interrupt with unmapped addr: {:#x}",
-                addr
-            ),
-        }
+    pub fn set_vblank_enable(&mut self, val: u8) {
+        self.vblank.enable = val != 0;
     }
 
-    pub fn set_flag(&mut self, i: Irq, val: bool) {
-        match (i, val) {
-            (Irq::Vblank, true) => self.flag |= Self::VBLANK,
-            (Irq::Vblank, false) => self.flag &= !Self::VBLANK,
-            (Irq::LCDStat, true) => self.flag |= Self::LCD_STAT,
-            (Irq::LCDStat, false) => self.flag &= !Self::LCD_STAT,
-            (Irq::Timer, true) => self.flag |= Self::TIMER,
-            (Irq::Timer, false) => self.flag &= !Self::TIMER,
-            (Irq::Serial, true) => self.flag |= Self::SERIAL,
-            (Irq::Serial, false) => self.flag &= !Self::SERIAL,
-            (Irq::Joypad, true) => self.flag |= Self::JOYPAD,
-            (Irq::Joypad, false) => self.flag &= !Self::JOYPAD,
-        }
+    pub fn set_vblank_trigger(&mut self, val: u8) {
+        self.vblank.trigger = val != 0;
     }
 
-    pub fn set_enable(&mut self, i: Irq, val: bool) {
-        match (i, val) {
-            (Irq::Vblank, true) => self.enable |= Self::VBLANK,
-            (Irq::Vblank, false) => self.enable &= !Self::VBLANK,
-            (Irq::LCDStat, true) => self.enable |= Self::LCD_STAT,
-            (Irq::LCDStat, false) => self.enable &= !Self::LCD_STAT,
-            (Irq::Timer, true) => self.enable |= Self::TIMER,
-            (Irq::Timer, false) => self.enable &= !Self::TIMER,
-            (Irq::Serial, true) => self.enable |= Self::SERIAL,
-            (Irq::Serial, false) => self.enable &= !Self::SERIAL,
-            (Irq::Joypad, true) => self.enable |= Self::JOYPAD,
-            (Irq::Joypad, false) => self.enable &= !Self::JOYPAD,
-        }
+    pub fn vblank_enable(&self) -> bool {
+        self.vblank.enable
+    }
+
+    pub fn vblank_trigger(&self) -> bool {
+        self.vblank.trigger
+    }
+
+    pub fn set_lcd_stat_enable(&mut self, val: u8) {
+        self.lcd_stat.enable = val != 0;
+    }
+
+    pub fn set_lcd_stat_trigger(&mut self, val: u8) {
+        self.lcd_stat.trigger = val != 0;
+    }
+
+    pub fn lcd_stat_enable(&self) -> bool {
+        self.lcd_stat.enable
+    }
+
+    pub fn lcd_stat_trigger(&self) -> bool {
+        self.lcd_stat.trigger
+    }
+
+    pub fn set_timer_enable(&mut self, val: u8) {
+        self.timer.enable = val != 0;
+    }
+
+    pub fn set_timer_trigger(&mut self, val: u8) {
+        self.timer.trigger = val != 0;
+    }
+
+    pub fn timer_enable(&self) -> bool {
+        self.timer.enable
+    }
+
+    pub fn timer_trigger(&self) -> bool {
+        self.timer.trigger
+    }
+
+    pub fn set_serial_enable(&mut self, val: u8) {
+        self.serial.enable = val != 0;
+    }
+
+    pub fn set_serial_trigger(&mut self, val: u8) {
+        self.serial.trigger = val != 0;
+    }
+
+    pub fn serial_enable(&self) -> bool {
+        self.serial.enable
+    }
+
+    pub fn serial_trigger(&self) -> bool {
+        self.serial.trigger
+    }
+
+    pub fn set_joypad_enable(&mut self, val: u8) {
+        self.joypad.enable = val != 0;
+    }
+
+    pub fn set_joypad_trigger(&mut self, val: u8) {
+        self.joypad.trigger = val != 0;
+    }
+
+    pub fn joypad_enable(&self) -> bool {
+        self.joypad.enable
+    }
+
+    pub fn joypad_trigger(&self) -> bool {
+        self.joypad.trigger
     }
 
     /// Returns the pc for the highest prioirty interrupt that's enabled and whose flag is set,
     /// or None if no interrupts are ready.
     pub fn get_interrupt_pc(&self) -> Option<u16> {
-        if (self.enable & Self::VBLANK != 0) && (self.flag & Self::VBLANK != 0) {
+        if self.vblank.enable && self.vblank.trigger {
             return Some(Self::VBLANK_PC);
         }
-        if (self.enable & Self::LCD_STAT != 0) && (self.flag & Self::LCD_STAT != 0) {
+        if self.lcd_stat.enable && self.lcd_stat.trigger {
             return Some(Self::LCD_STAT_PC);
         }
-        if (self.enable & Self::TIMER != 0) && (self.flag & Self::TIMER != 0) {
+        if self.timer.enable && self.timer.trigger {
             return Some(Self::TIMER_PC);
         }
-        if (self.enable & Self::SERIAL != 0) && (self.flag & Self::SERIAL != 0) {
+        if self.serial.enable && self.serial.trigger {
             return Some(Self::SERIAL_PC);
         }
-        if (self.enable & Self::JOYPAD != 0) && (self.flag & Self::JOYPAD != 0) {
+        if self.joypad.enable && self.joypad.trigger {
             return Some(Self::JOYPAD_PC);
         }
         None
@@ -109,16 +142,16 @@ impl Interrupt {
 
     /// Clears the flag of the current higest-priority enabled interrupt.
     pub fn disable_interrupt(&mut self) {
-        if (self.enable & Self::VBLANK != 0) && (self.flag & Self::VBLANK != 0) {
-            self.set_flag(Irq::Vblank, false);
-        } else if (self.enable & Self::LCD_STAT != 0) && (self.flag & Self::LCD_STAT != 0) {
-            self.set_flag(Irq::LCDStat, false);
-        } else if (self.enable & Self::TIMER != 0) && (self.flag & Self::TIMER != 0) {
-            self.set_flag(Irq::Timer, false);
-        } else if (self.enable & Self::SERIAL != 0) && (self.flag & Self::SERIAL != 0) {
-            self.set_flag(Irq::Serial, false);
-        } else if (self.enable & Self::JOYPAD != 0) && (self.flag & Self::JOYPAD != 0) {
-            self.set_flag(Irq::Joypad, false);
+        if self.vblank.enable && self.vblank.trigger {
+            self.vblank.trigger = false;
+        } else if self.lcd_stat.enable && self.lcd_stat.trigger {
+            self.lcd_stat.trigger = false;
+        } else if self.timer.enable && self.timer.trigger {
+            self.timer.trigger = false;
+        } else if self.serial.enable && self.serial.trigger {
+            self.serial.trigger = false;
+        } else if self.joypad.enable && self.joypad.trigger {
+            self.joypad.trigger = false;
         }
     }
 }
@@ -131,26 +164,26 @@ mod tests {
     fn interrupt_enable() {
         let mut interrupt = Interrupt::new();
 
-        interrupt.set_enable(Irq::Timer, true);
-        interrupt.set_enable(Irq::LCDStat, true);
-        interrupt.set_flag(Irq::Vblank, true);
-        interrupt.set_flag(Irq::Timer, true);
-        interrupt.set_flag(Irq::LCDStat, true);
+        interrupt.set_timer_enable(1);
+        interrupt.set_lcd_stat_enable(1);
+        interrupt.set_vblank_trigger(1);
+        interrupt.set_timer_trigger(1);
+        interrupt.set_lcd_stat_trigger(1);
         assert_eq!(
             interrupt.get_interrupt_pc().unwrap(),
             Interrupt::LCD_STAT_PC
         );
 
-        interrupt.set_enable(Irq::Vblank, true);
+        interrupt.set_vblank_enable(1);
         assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::VBLANK_PC);
 
-        interrupt.set_flag(Irq::LCDStat, false);
+        interrupt.set_lcd_stat_trigger(0);
         assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::VBLANK_PC);
 
-        interrupt.set_flag(Irq::Vblank, false);
+        interrupt.set_vblank_trigger(0);
         assert_eq!(interrupt.get_interrupt_pc().unwrap(), Interrupt::TIMER_PC);
 
-        interrupt.set_flag(Irq::Timer, false);
+        interrupt.set_timer_trigger(0);
         assert!(interrupt.get_interrupt_pc().is_none());
     }
 }

@@ -80,7 +80,7 @@ impl LR25902 {
                     }
                 }
             } else if mem.get_interrupt() != None {
-                let op = mem::replace(&mut self.next_op, NextOp::new());
+                mem::replace(&mut self.next_op, NextOp::new());
                 self.next_op.op = Op::SetupInterrupt;
                 self.next_op.delay_cycles = 3;
                 self.interrupted = true;

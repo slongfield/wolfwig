@@ -39,7 +39,7 @@ impl Cartridge for MbcOne {
                 *self.rom.get(final_addr as usize).unwrap_or(&0xFF)
             }
             0xFF50 => self.bootrom_disabled as u8,
-            addr => 0xFF,
+            _ => 0xFF,
         }
     }
 

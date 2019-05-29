@@ -174,11 +174,24 @@ impl Peripherals {
                                      2..2 => self.timer.set_start,
                                      1..0 => self.timer.set_input_clock
                 ),
-                addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.write(addr, val),
+                0xFF0F => write_reg!(val:
+                    4..4 => self.interrupt.set_joypad_trigger,
+                    3..3 => self.interrupt.set_serial_trigger,
+                    2..2 => self.interrupt.set_timer_trigger,
+                    1..1 => self.interrupt.set_lcd_stat_trigger,
+                    0..0 => self.interrupt.set_vblank_trigger
+                ),
                 addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
+                0xFFFF => write_reg!(val:
+                    4..4 => self.interrupt.set_joypad_enable,
+                    3..3 => self.interrupt.set_serial_enable,
+                    2..2 => self.interrupt.set_timer_enable,
+                    1..1 => self.interrupt.set_lcd_stat_enable,
+                    0..0 => self.interrupt.set_vblank_enable
+                ),
                 _ => {}
             }
         }
@@ -220,12 +233,25 @@ impl Peripherals {
                     2..2 => self.timer.start,
                     1..0 => self.timer.input_clock
                 ),
-                addr @ 0xFF0F | addr @ 0xFFFF => self.interrupt.read(addr),
+                0xFF0F => read_reg!(
+                    4..4 => self.interrupt.joypad_trigger,
+                    3..3 => self.interrupt.serial_trigger,
+                    2..2 => self.interrupt.timer_trigger,
+                    1..1 => self.interrupt.lcd_stat_trigger,
+                    0..0 => self.interrupt.vblank_trigger
+                ),
                 addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0
                 }
+                0xFFFF => read_reg!(
+                    4..4 => self.interrupt.joypad_enable,
+                    3..3 => self.interrupt.serial_enable,
+                    2..2 => self.interrupt.timer_enable,
+                    1..1 => self.interrupt.lcd_stat_enable,
+                    0..0 => self.interrupt.vblank_enable
+                ),
                 _ => 0,
             }
         }
