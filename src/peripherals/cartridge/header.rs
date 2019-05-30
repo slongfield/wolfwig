@@ -188,7 +188,7 @@ pub fn draw_nintendo(bytes: &[u8], f: &mut fmt::Formatter) -> fmt::Result {
                 .collect::<String>())
             .collect::<Vec<String>>()
             .join("\n")
-    );
+    )?;
 
     Ok(())
 }

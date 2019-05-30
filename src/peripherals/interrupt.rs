@@ -20,6 +20,7 @@ pub struct Interrupt {
     timer: Flag,
     serial: Flag,
     joypad: Flag,
+    unused: u8,
 }
 
 impl Interrupt {
@@ -36,6 +37,7 @@ impl Interrupt {
             timer: Flag::new(),
             serial: Flag::new(),
             joypad: Flag::new(),
+            unused: 0,
         }
     }
 
@@ -117,6 +119,14 @@ impl Interrupt {
 
     pub fn joypad_trigger(&self) -> bool {
         self.joypad.trigger
+    }
+
+    pub fn set_unused(&mut self, val: u8) {
+        self.unused = val
+    }
+
+    pub fn unused(&self) -> u8 {
+        self.unused
     }
 
     /// Returns the pc for the highest prioirty interrupt that's enabled and whose flag is set,

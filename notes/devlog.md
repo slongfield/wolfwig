@@ -23,13 +23,17 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 ## Log
 
-### 2010-05-28
+### 2019-05-29
+
+* I wonder if it's worth it to make a generator for these registers?
+
+### 2019-05-28
 
 * Applying that new macro bit by bit.
 * Would be nice to have a macro to create getters and setters, but apparently can't concatinate
   names together in macros. :/
 
-### 2010-05-27
+### 2019-05-27
 
 * Using mooneye/misc/bits/unused\_hwio to check that the new registers are hooked up correctly.
 * Time gets away from me quickly.

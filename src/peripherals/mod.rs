@@ -53,20 +53,20 @@ fn read_rom_from_file(filename: &Path) -> Result<Vec<u8>, io::Error> {
 // Macro for fanning writes from a register out to various setters.
 macro_rules! write_reg {
     ($val:ident: $( $msb:literal .. $lsb:literal =>
-                    $self:ident.$mod:ident.$field:ident),* ) => {{
+                    $self:ident.$mod:ident$(.$field:ident)+),* ) => {{
         $(
-            $self.$mod.$field(($val & ((1 << ($msb-$lsb+1)) - 1 << $lsb)) >> $lsb);
+            $self.$mod$(.$field)+(($val & ((1 << ($msb-$lsb+1)) - 1 << $lsb)) >> $lsb);
         )*
     }}
 }
 
 // Macro for fanning reads from a reigster in from various getters. Unmapped bits are read as 1.
 macro_rules! read_reg {
-    ( $( $msb:literal .. $lsb:literal => $self:ident.$mod:ident.$field:ident), * ) => {{
+    ( $( $msb:literal .. $lsb:literal => $self:ident.$mod:ident$(.$field:ident)+),* ) => {{
         let mut val = 0xFF;
         $(
             val &= !(((1 << ($msb-$lsb+1)) - 1) << $lsb);
-            val |= (u8::from($self.$mod.$field()) & ((1 << ($msb-$lsb+1)) - 1)) << $lsb;
+            val |= (u8::from($self.$mod$(.$field)+()) & ((1 << ($msb-$lsb+1)) - 1)) << $lsb;
         )*
             val
     }}
@@ -151,17 +151,17 @@ impl Peripherals {
                     self.ppu.write(addr, val)
                 }
                 addr @ 0xA000..=0xBFFF
-                | addr @ 0xC000..=0xCFFF
-                | addr @ 0xD000..=0xDFFF
-                | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
+                    | addr @ 0xC000..=0xCFFF
+                    | addr @ 0xD000..=0xDFFF
+                    | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
                 // Echo RAM, maps back onto 0xC000-0XDDFF
                 addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
                 addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
                 // I/O registers.
                 0xFF00 => {
                     write_reg!(val:
-                        5..5 => self.joypad.set_select_button,
-                        4..4 => self.joypad.set_select_direction
+                               5..5 => self.joypad.set_select_button,
+                               4..4 => self.joypad.set_select_direction
                     );
                     self.joypad.update()
                 }
@@ -175,22 +175,58 @@ impl Peripherals {
                                      1..0 => self.timer.set_input_clock
                 ),
                 0xFF0F => write_reg!(val:
-                    4..4 => self.interrupt.set_joypad_trigger,
-                    3..3 => self.interrupt.set_serial_trigger,
-                    2..2 => self.interrupt.set_timer_trigger,
-                    1..1 => self.interrupt.set_lcd_stat_trigger,
-                    0..0 => self.interrupt.set_vblank_trigger
+                                     4..4 => self.interrupt.set_joypad_trigger,
+                                     3..3 => self.interrupt.set_serial_trigger,
+                                     2..2 => self.interrupt.set_timer_trigger,
+                                     1..1 => self.interrupt.set_lcd_stat_trigger,
+                                     0..0 => self.interrupt.set_vblank_trigger
                 ),
-                addr @ 0xFF10..=0xFF3F => self.apu.write(addr, val),
+                0xFF10 => write_reg!(val:
+                                     6..4 => self.apu.channel_one.sweep.set_time,
+                                     3..3 => self.apu.channel_one.sweep.set_direction,
+                                     2..0 => self.apu.channel_one.sweep.set_shift
+                ),
+                0xFF11 => write_reg!(val:
+                                     7..6 => self.apu.channel_one.length_pattern.set_duty,
+                                     5..0 => self.apu.channel_one.length_pattern.set_length
+                ),
+                0xFF12 => write_reg!(val:
+                                     7..4 => self.apu.channel_one.envelope.set_initial_volume,
+                                     3..3 => self.apu.channel_one.envelope.set_direction,
+                                     2..0 => self.apu.channel_one.envelope.set_sweep
+                ),
+                0xFF13 => self.apu.channel_one.frequency.set_frequency_low(val),
+                0xFF14 => write_reg!(val:
+                                     7..7 => self.apu.channel_one.frequency.set_start,
+                                     6..6 => self.apu.channel_one.frequency.set_use_counter,
+                                     2..0 => self.apu.channel_one.frequency.set_frequency_high
+                ),
+                0xFF16 => write_reg!(val:
+                                     7..6 => self.apu.channel_two.length_pattern.set_duty,
+                                     5..0 => self.apu.channel_two.length_pattern.set_length
+                ),
+                0xFF17 => write_reg!(val:
+                                     7..4 => self.apu.channel_two.envelope.set_initial_volume,
+                                     3..3 => self.apu.channel_two.envelope.set_direction,
+                                     2..0 => self.apu.channel_two.envelope.set_sweep
+                ),
+                0xFF18 => self.apu.channel_two.frequency.set_frequency_low(val),
+                0xFF19 => write_reg!(val:
+                                     7..7 => self.apu.channel_two.frequency.set_start,
+                                     6..6 => self.apu.channel_two.frequency.set_use_counter,
+                                     2..0 => self.apu.channel_two.frequency.set_frequency_high
+                ),
+                0xFF1A..=0xFF3F => {} // self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
                 0xFFFF => write_reg!(val:
-                    4..4 => self.interrupt.set_joypad_enable,
-                    3..3 => self.interrupt.set_serial_enable,
-                    2..2 => self.interrupt.set_timer_enable,
-                    1..1 => self.interrupt.set_lcd_stat_enable,
-                    0..0 => self.interrupt.set_vblank_enable
+                                     7..5 => self.interrupt.set_unused,
+                                     4..4 => self.interrupt.set_joypad_enable,
+                                     3..3 => self.interrupt.set_serial_enable,
+                                     2..2 => self.interrupt.set_timer_enable,
+                                     1..1 => self.interrupt.set_lcd_stat_enable,
+                                     0..0 => self.interrupt.set_vblank_enable
                 ),
                 _ => {}
             }
@@ -240,12 +276,48 @@ impl Peripherals {
                     1..1 => self.interrupt.lcd_stat_trigger,
                     0..0 => self.interrupt.vblank_trigger
                 ),
-                addr @ 0xFF10..=0xFF3F => self.apu.read(addr),
+                0xFF10 => read_reg!(
+                    6..4 => self.apu.channel_one.sweep.time,
+                    3..3 => self.apu.channel_one.sweep.direction,
+                    2..0 => self.apu.channel_one.sweep.shift
+                ),
+                0xFF11 => read_reg!(
+                    7..6 => self.apu.channel_one.length_pattern.duty,
+                    5..0 => self.apu.channel_one.length_pattern.length
+                ),
+                0xFF12 => read_reg!(
+                    7..4 => self.apu.channel_one.envelope.initial_volume,
+                    3..3 => self.apu.channel_one.envelope.direction,
+                    2..0 => self.apu.channel_one.envelope.sweep
+                ),
+                0xFF13 => self.apu.channel_one.frequency.frequency_low(),
+                0xFF14 => read_reg!(
+                    7..7 => self.apu.channel_one.frequency.start,
+                    6..6 => self.apu.channel_one.frequency.use_counter,
+                    2..0 => self.apu.channel_one.frequency.frequency_high
+                ),
+                0xFF16 => read_reg!(
+                    7..6 => self.apu.channel_two.length_pattern.duty,
+                    5..0 => self.apu.channel_two.length_pattern.length
+                ),
+                0xFF17 => read_reg!(
+                    7..4 => self.apu.channel_two.envelope.initial_volume,
+                    3..3 => self.apu.channel_two.envelope.direction,
+                    2..0 => self.apu.channel_two.envelope.sweep
+                ),
+                0xFF18 => self.apu.channel_two.frequency.frequency_low(),
+                0xFF19 => read_reg!(
+                    7..7 => self.apu.channel_two.frequency.start,
+                    6..6 => self.apu.channel_two.frequency.use_counter,
+                    2..0 => self.apu.channel_two.frequency.frequency_high
+                ),
+                0xFF10..=0xFF3F => 0xFF, // self.apu.read(addr),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0
                 }
                 0xFFFF => read_reg!(
+                    7..5 => self.interrupt.unused,
                     4..4 => self.interrupt.joypad_enable,
                     3..3 => self.interrupt.serial_enable,
                     2..2 => self.interrupt.timer_enable,
