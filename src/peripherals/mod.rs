@@ -154,17 +154,17 @@ impl Peripherals {
                     | addr @ 0xC000..=0xCFFF
                     | addr @ 0xD000..=0xDFFF
                     | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
-                // Echo RAM, maps back onto 0xC000-0XDDFF
-                addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
-                addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
-                // I/O registers.
-                0xFF00 => {
-                    write_reg!(val:
-                               5..5 => self.joypad.set_select_button,
-                               4..4 => self.joypad.set_select_direction
-                    );
-                    self.joypad.update()
-                }
+                    // Echo RAM, maps back onto 0xC000-0XDDFF
+                    addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
+                    addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
+                    // I/O registers.
+                    0xFF00 => {
+                        write_reg!(val:
+                                   5..5 => self.joypad.set_select_button,
+                                   4..4 => self.joypad.set_select_direction
+                        );
+                        self.joypad.update()
+                    }
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 0xFF04 => self.timer.set_divider(),
@@ -216,7 +216,23 @@ impl Peripherals {
                                      6..6 => self.apu.channel_two.frequency.set_use_counter,
                                      2..0 => self.apu.channel_two.frequency.set_frequency_high
                 ),
-                0xFF1A..=0xFF3F => {} // self.apu.write(addr, val),
+                0xFF1A => write_reg!(val:
+                                     7..7 => self.apu.channel_three.set_enable
+                ),
+                0xFF1B => self.apu.channel_three.set_length(val),
+                0xFF1C => write_reg!(val:
+                                     6..5 => self.apu.channel_three.set_level
+                ),
+                0xFF1D => self.apu.channel_three.frequency.set_frequency_low(val),
+                0xFF1E => write_reg!(val:
+                                     7..7 => self.apu.channel_three.frequency.set_start,
+                                     6..6 => self.apu.channel_three.frequency.set_use_counter,
+                                     2..0 => self.apu.channel_three.frequency.set_frequency_high
+                ),
+                addr @ 0xFF30..=0xFF3F => {
+                    self.apu.channel_three.set_table(usize::from(0xFF30 - addr), val)
+                },
+                0xFF20..=0xFF26 => {} // self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
@@ -311,7 +327,21 @@ impl Peripherals {
                     6..6 => self.apu.channel_two.frequency.use_counter,
                     2..0 => self.apu.channel_two.frequency.frequency_high
                 ),
-                0xFF10..=0xFF3F => 0xFF, // self.apu.read(addr),
+                0xFF1A => read_reg!(
+                    7..7 => self.apu.channel_three.enable
+                ),
+                0xFF1B => self.apu.channel_three.length(),
+                0xFF1C => read_reg!(
+                    6..5 => self.apu.channel_three.level
+                ),
+                0xFF1D => self.apu.channel_three.frequency.frequency_low(),
+                0xFF1E => read_reg!(
+                                     7..7 => self.apu.channel_three.frequency.start,
+                                     6..6 => self.apu.channel_three.frequency.use_counter,
+                                     2..0 => self.apu.channel_three.frequency.frequency_high
+                ),
+                addr @ 0xFF30..=0xFF3F => self.apu.channel_three.table(usize::from(0xFF30 - addr)),
+                0xFF20..=0xFF26 => 0xFF, // self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0

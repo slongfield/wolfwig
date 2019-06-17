@@ -176,9 +176,70 @@ impl ChannelTwo {
     }
 }
 
+pub struct ChannelThree {
+    pub enable: bool,
+    pub length: u8,
+    pub level: u8,
+    pub frequency: Frequency,
+    pub table: Vec<u8>,
+}
+
+impl ChannelThree {
+    const TABLE_SIZE: usize = 16;
+
+    pub fn new() -> Self {
+        Self {
+            enable: false,
+            length: 0,
+            level: 0,
+            frequency: Frequency::new(),
+            table: vec![0; Self::TABLE_SIZE],
+        }
+    }
+
+    pub fn set_enable(&mut self, val: u8) {
+        self.enable = val != 0;
+    }
+
+    pub fn set_length(&mut self, val: u8) {
+        self.length = val;
+    }
+
+    pub fn set_level(&mut self, val: u8) {
+        self.level = val;
+    }
+
+    pub fn set_table(&mut self, offset: usize, val: u8) {
+        if let Some(old) = self.table.get_mut(offset) {
+            *old = val;
+        }
+    }
+
+    pub fn enable(&self) -> u8 {
+        self.enable as u8
+    }
+
+    pub fn length(&self) -> u8 {
+        self.length
+    }
+
+    pub fn level(&self) -> u8 {
+        self.level
+    }
+
+    pub fn table(&self, offset: usize) -> u8 {
+        if let Some(&val) = self.table.get(offset) {
+            val
+        } else {
+            0xFF
+        }
+    }
+}
+
 pub struct Apu {
     pub channel_one: ChannelOne,
     pub channel_two: ChannelTwo,
+    pub channel_three: ChannelThree,
 }
 
 impl Apu {
@@ -186,6 +247,7 @@ impl Apu {
         Self {
             channel_one: ChannelOne::new(),
             channel_two: ChannelTwo::new(),
+            channel_three: ChannelThree::new(),
         }
     }
 

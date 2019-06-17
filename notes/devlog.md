@@ -2,6 +2,19 @@
 
 These are raw notes and logs of what I was doing and what I was thinking at the time.
 
+## TODO
+
+This is the section for active TODOs.
+
+* Set up all registers with the new format.
+ * APU registers
+ * PPU registers
+* Support windows on PPU
+ * Tennis ROM
+ * Tenis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
+   not working?
+
+
 ## Ideas
 
 ### Scripting
@@ -22,6 +35,10 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 * Can the APU output MIDI directly?
 
 ## Log
+
+### 2019-06-19
+
+* There are so many registers.
 
 ### 2019-05-29
 
