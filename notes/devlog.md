@@ -7,7 +7,6 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 This is the section for active TODOs.
 
 * Set up all registers with the new format.
- * APU registers
  * PPU registers
 * Support windows on PPU
  * Tennis ROM

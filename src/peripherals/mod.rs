@@ -232,7 +232,25 @@ impl Peripherals {
                 addr @ 0xFF30..=0xFF3F => {
                     self.apu.channel_three.set_table(usize::from(0xFF30 - addr), val)
                 },
-                0xFF20..=0xFF26 => {} // self.apu.write(addr, val),
+                0xFF20 => write_reg!(val:
+                                     5..0 => self.apu.channel_four.set_length
+                ),
+                0xFF21 => write_reg!(val:
+                                     7..4 => self.apu.channel_four.envelope.set_initial_volume,
+                                     3..3 => self.apu.channel_four.envelope.set_direction,
+                                     2..0 => self.apu.channel_four.envelope.set_sweep
+                ),
+                0xFF22 => write_reg!(val:
+                                     7..4 => self.apu.channel_four.counter.set_frequency,
+                                     3..3 => self.apu.channel_four.counter.set_width,
+                                     2..0 => self.apu.channel_four.counter.set_ratio
+                ),
+                0xFF23 => write_reg!(val:
+                                     7..7 => self.apu.channel_four.set_start,
+                                     6..6 => self.apu.channel_four.set_stop_on_length
+                ),
+
+                0xFF24..=0xFF26 => {} // self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
@@ -336,12 +354,28 @@ impl Peripherals {
                 ),
                 0xFF1D => self.apu.channel_three.frequency.frequency_low(),
                 0xFF1E => read_reg!(
-                                     7..7 => self.apu.channel_three.frequency.start,
-                                     6..6 => self.apu.channel_three.frequency.use_counter,
-                                     2..0 => self.apu.channel_three.frequency.frequency_high
+                    7..7 => self.apu.channel_three.frequency.start,
+                    6..6 => self.apu.channel_three.frequency.use_counter,
+                    2..0 => self.apu.channel_three.frequency.frequency_high
                 ),
                 addr @ 0xFF30..=0xFF3F => self.apu.channel_three.table(usize::from(0xFF30 - addr)),
-                0xFF20..=0xFF26 => 0xFF, // self.apu.write(addr, val),
+                0xFF20 => read_reg!(
+                    5..0 => self.apu.channel_four.length
+                ),
+                0xFF21 => read_reg!(
+                    7..4 => self.apu.channel_four.envelope.initial_volume,
+                    3..3 => self.apu.channel_four.envelope.direction,
+                    2..0 => self.apu.channel_four.envelope.sweep
+                ),
+                0xFF22 => read_reg!(
+                    7..4 => self.apu.channel_four.counter.frequency,
+                    3..3 => self.apu.channel_four.counter.width,
+                    2..0 => self.apu.channel_four.counter.ratio
+                ),
+                0xFF23 => read_reg!(
+                    6..6 => self.apu.channel_four.stop_on_length
+                ),
+                0xFF24..=0xFF26 => 0xFF, // self.apu.write(addr, val),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
                     0

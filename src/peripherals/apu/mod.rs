@@ -142,6 +142,48 @@ impl Frequency {
     }
 }
 
+// Polynomial counter, used to produce noise
+pub struct PolyCounter {
+    pub frequency: u8,
+    // false = 15 bits, true = 7 bits
+    pub width: bool,
+    pub ratio: u8,
+}
+
+impl PolyCounter {
+    pub fn new() -> Self {
+        Self {
+            frequency: 0,
+            width: false,
+            ratio: 0,
+        }
+    }
+
+    pub fn set_frequency(&mut self, val: u8) {
+        self.frequency = val
+    }
+
+    pub fn set_width(&mut self, val: u8) {
+        self.width = val != 0
+    }
+
+    pub fn set_ratio(&mut self, val: u8) {
+        self.ratio = val
+    }
+
+    pub fn frequency(&self) -> u8 {
+        self.frequency
+    }
+
+    pub fn width(&self) -> u8 {
+        self.width as u8
+    }
+
+    pub fn ratio(&self) -> u8 {
+        self.ratio
+    }
+}
+
 pub struct ChannelOne {
     pub sweep: Sweep,
     pub length_pattern: LengthPattern,
@@ -236,10 +278,52 @@ impl ChannelThree {
     }
 }
 
+/// Channel Four is the noise channel, usually used for snares or other percussion.
+pub struct ChannelFour {
+    pub length: u8,
+    pub envelope: Envelope,
+    pub counter: PolyCounter,
+    pub start: bool,
+    pub stop_on_length: bool,
+}
+
+impl ChannelFour {
+    pub fn new() -> Self {
+        Self {
+            length: 0,
+            envelope: Envelope::new(),
+            counter: PolyCounter::new(),
+            start: false,
+            stop_on_length: false,
+        }
+    }
+
+    pub fn set_length(&mut self, val: u8) {
+        self.length = val
+    }
+
+    pub fn set_start(&mut self, val: u8) {
+        self.start = val != 0
+    }
+
+    pub fn set_stop_on_length(&mut self, val: u8) {
+        self.stop_on_length = val != 0
+    }
+
+    pub fn length(&self) -> u8 {
+        self.length
+    }
+
+    pub fn stop_on_length(&self) -> u8 {
+        self.stop_on_length as u8
+    }
+}
+
 pub struct Apu {
     pub channel_one: ChannelOne,
     pub channel_two: ChannelTwo,
     pub channel_three: ChannelThree,
+    pub channel_four: ChannelFour,
 }
 
 impl Apu {
@@ -248,6 +332,7 @@ impl Apu {
             channel_one: ChannelOne::new(),
             channel_two: ChannelTwo::new(),
             channel_three: ChannelThree::new(),
+            channel_four: ChannelFour::new(),
         }
     }
 
