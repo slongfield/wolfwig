@@ -249,8 +249,14 @@ impl Peripherals {
                                      7..7 => self.apu.channel_four.set_start,
                                      6..6 => self.apu.channel_four.set_stop_on_length
                 ),
-
-                0xFF24..=0xFF26 => {} // self.apu.write(addr, val),
+                0xFF24 => write_reg!(val:
+                                     6..4 => self.apu.control.volume.set_left,
+                                     2..0 => self.apu.control.volume.set_right
+                ),
+                0xFF25 => self.apu.control.channel_enable.set_enable(val),
+                0xFF26 => write_reg!(val:
+                                     7..7 => self.apu.control.set_enable
+                ),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
@@ -375,10 +381,21 @@ impl Peripherals {
                 0xFF23 => read_reg!(
                     6..6 => self.apu.channel_four.stop_on_length
                 ),
-                0xFF24..=0xFF26 => 0xFF, // self.apu.write(addr, val),
-                0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
+                0xFF24 => read_reg!(
+                    6..4 => self.apu.control.volume.left,
+                    2..0 => self.apu.control.volume.right
+                ),
+                0xFF25 => self.apu.control.channel_enable.enable(),
+                0xFF26 => read_reg!(
+                    7..7 => self.apu.control.enable,
+                    3..3 => self.apu.channel_four.active,
+                    2..2 => self.apu.channel_three.active,
+                    1..1 => self.apu.channel_two.active,
+                    0..0 => self.apu.channel_one.active
+                ),
+                0xFF03 | 0xFF08..=0xFF0E | 0xFF15 | 0xFF1F | 0xFF27..=0xFF2F | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
-                    0
+                    0xFF
                 }
                 0xFFFF => read_reg!(
                     7..5 => self.interrupt.unused,
@@ -388,7 +405,7 @@ impl Peripherals {
                     1..1 => self.interrupt.lcd_stat_enable,
                     0..0 => self.interrupt.vblank_enable
                 ),
-                _ => 0,
+                addr => unreachable!("Attempted to read from {:#4x}, should be unreachable.", addr),
             }
         }
     }

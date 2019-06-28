@@ -10,7 +10,7 @@ pub struct Sweep {
 }
 
 impl Sweep {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             time: 0,
             direction: false,
@@ -45,7 +45,7 @@ pub struct LengthPattern {
 }
 
 impl LengthPattern {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self { duty: 0, length: 0 }
     }
     pub fn duty(&self) -> u8 {
@@ -69,7 +69,7 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             initial_volume: 0,
             direction: false,
@@ -104,7 +104,7 @@ pub struct Frequency {
 }
 
 impl Frequency {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             frequency: 0,
             start: false,
@@ -151,7 +151,7 @@ pub struct PolyCounter {
 }
 
 impl PolyCounter {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             frequency: 0,
             width: false,
@@ -189,16 +189,22 @@ pub struct ChannelOne {
     pub length_pattern: LengthPattern,
     pub envelope: Envelope,
     pub frequency: Frequency,
+    active: bool,
 }
 
 impl ChannelOne {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             sweep: Sweep::new(),
             length_pattern: LengthPattern::new(),
             envelope: Envelope::new(),
             frequency: Frequency::new(),
+            active: false,
         }
+    }
+
+    pub fn active(&self) -> u8 {
+      self.active as u8
     }
 }
 
@@ -206,16 +212,23 @@ pub struct ChannelTwo {
     pub length_pattern: LengthPattern,
     pub envelope: Envelope,
     pub frequency: Frequency,
+    active: bool,
 }
 
 impl ChannelTwo {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             length_pattern: LengthPattern::new(),
             envelope: Envelope::new(),
             frequency: Frequency::new(),
+            active: false,
         }
     }
+
+    pub fn active(&self) -> u8 {
+      self.active as u8
+    }
+
 }
 
 pub struct ChannelThree {
@@ -224,18 +237,20 @@ pub struct ChannelThree {
     pub level: u8,
     pub frequency: Frequency,
     pub table: Vec<u8>,
+    active: bool,
 }
 
 impl ChannelThree {
     const TABLE_SIZE: usize = 16;
 
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             enable: false,
             length: 0,
             level: 0,
             frequency: Frequency::new(),
             table: vec![0; Self::TABLE_SIZE],
+            active: false,
         }
     }
 
@@ -276,6 +291,12 @@ impl ChannelThree {
             0xFF
         }
     }
+
+    pub fn active(&self) -> u8 {
+      self.active as u8
+    }
+
+
 }
 
 /// Channel Four is the noise channel, usually used for snares or other percussion.
@@ -285,16 +306,18 @@ pub struct ChannelFour {
     pub counter: PolyCounter,
     pub start: bool,
     pub stop_on_length: bool,
+    active: bool,
 }
 
 impl ChannelFour {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             length: 0,
             envelope: Envelope::new(),
             counter: PolyCounter::new(),
             start: false,
             stop_on_length: false,
+            active: false,
         }
     }
 
@@ -317,6 +340,96 @@ impl ChannelFour {
     pub fn stop_on_length(&self) -> u8 {
         self.stop_on_length as u8
     }
+
+
+    pub fn active(&self) -> u8 {
+      self.active as u8
+    }
+
+
+}
+
+pub struct Volume {
+  pub left: u8,
+  pub right: u8,
+}
+
+impl Volume {
+  fn new() -> Self {
+    Self {
+      left: 0,
+      right: 0,
+    }
+  }
+
+  pub fn set_left(&mut self, val: u8) {
+    self.left = val
+  }
+
+  pub fn set_right(&mut self, val: u8) {
+    self.right = val
+  }
+
+  pub fn left(&self) -> u8 {
+    self.left
+  }
+
+  pub fn right(&self) -> u8 {
+    self.right
+  }
+
+}
+
+bitflags!{
+  pub struct ChannelEnable: u8 {
+    const CH4_LEFT  = 0b1000_0000;
+    const CH3_LEFT  = 0b0100_0000;
+    const CH2_LEFT  = 0b0010_0000;
+    const CH1_LEFT  = 0b0001_0000;
+    const CH4_RIGHT = 0b0000_1000;
+    const CH3_RIGHT = 0b0000_0100;
+    const CH2_RIGHT = 0b0000_0010;
+    const CH1_RIGHT = 0b0000_0001;
+  }
+}
+
+impl ChannelEnable {
+  fn new() -> Self {
+    Self::empty()
+  }
+
+  pub fn set_enable(&mut self, val: u8) {
+    self.remove(Self::all());
+    self.insert(Self::from_bits_truncate(val));
+  }
+
+  pub fn enable(&self) -> u8 {
+    self.bits()
+  }
+}
+
+pub struct Control {
+  pub volume : Volume,
+  pub channel_enable: ChannelEnable,
+  pub enable: bool
+}
+
+impl Control {
+  fn new() -> Self {
+    Self{
+      volume: Volume::new(),
+      channel_enable: ChannelEnable::new(),
+      enable: false,
+      }
+  }
+
+  pub fn set_enable(&mut self, val: u8) {
+    self.enable = val != 0;
+  }
+
+  pub fn enable(&self) -> u8 {
+    self.enable as u8
+  }
 }
 
 pub struct Apu {
@@ -324,6 +437,7 @@ pub struct Apu {
     pub channel_two: ChannelTwo,
     pub channel_three: ChannelThree,
     pub channel_four: ChannelFour,
+    pub control: Control,
 }
 
 impl Apu {
@@ -333,6 +447,7 @@ impl Apu {
             channel_two: ChannelTwo::new(),
             channel_three: ChannelThree::new(),
             channel_four: ChannelFour::new(),
+            control: Control::new(),
         }
     }
 

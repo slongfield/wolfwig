@@ -33,7 +33,22 @@ This is the section for active TODOs.
 
 * Can the APU output MIDI directly?
 
+### State
+
+* Currently, the state is distributed throughout the peripherals. Would it make more sense if we put
+  all of the state configuration into a YAML file, and then generated a state object that could be
+  used everywhere?
+  * `build.rs` gives control over the build process, could do this there.
+  * Could also generate some documentation for me that I like more than the existing documentation.
+
 ## Log
+
+### 2019-06-29
+
+ * More registers.
+   * I already dislike this scheme. Better than what we were doing before, but the encapsulation
+     will make some of the flexability I want to add harder to implement.
+   * Want to get it working before I try something different, though.
 
 ### 2019-06-19
 
