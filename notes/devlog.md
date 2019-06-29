@@ -49,6 +49,8 @@ This is the section for active TODOs.
    * I already dislike this scheme. Better than what we were doing before, but the encapsulation
      will make some of the flexability I want to add harder to implement.
    * Want to get it working before I try something different, though.
+ * Got past level 10 on Tetris and saw the rocket. The sprites were messed up, so only half of the
+   rocket was properly loaded.
 
 ### 2019-06-19
 

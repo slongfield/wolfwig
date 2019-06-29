@@ -17,9 +17,8 @@ const MODE1_CYCLES: u8 = 114; // cycles per line
 const MODE2_CYCLES: u8 = 20;
 const MODE3_CYCLES: u8 = 43;
 
-// Written to by 0xFF40
 bitflags! {
-    struct LCDControl: u8 {
+    pub struct LCDControl: u8 {
         const ENABLE =        0b1000_0000;
         const WINDOW_TILE_MAP = 0b0100_0000;
         const WINDOW_DISPLAY = 0b0010_0000;
@@ -36,34 +35,23 @@ impl LCDControl {
         Self::empty()
     }
 
-    fn write(&mut self, val: u8) {
+    pub fn set_control(&mut self, val: u8) {
         self.remove(Self::all());
         self.insert(Self::from_bits_truncate(val));
     }
-
-    fn read(self) -> u8 {
-        self.bits()
-    }
 }
 
-enum Mode {
-    // HBlank
-    Mode0,
-    // VBlank
-    Mode1,
-    // Read from OAM, set up sprite info for this line.
-    Mode2,
-    // Render the line, reads OAM and VRAM.
-    Mode3,
-}
+const HBLANK_MODE: u8 = 0;
+const VBLANK_MODE: u8 = 1;
+const OAM_MODE: u8 = 2;
+const RENDER_MODE: u8 = 3;
 
-struct LCDStatus {
+pub struct LCDStatus {
     lyc_interrupt: bool,
     mode2_interrupt: bool,
     mode1_interrupt: bool,
     mode0_interrupt: bool,
-    lyc_eq_ly: bool,
-    mode: Mode,
+    mode: u8,
 }
 
 impl LCDStatus {
@@ -73,40 +61,36 @@ impl LCDStatus {
             mode2_interrupt: false,
             mode1_interrupt: false,
             mode0_interrupt: false,
-            lyc_eq_ly: false,
-            mode: Mode::Mode0,
+            mode: 0,
         }
     }
-    fn write(&mut self, val: u8) {
-        self.lyc_interrupt = val & (1 << 6) != 0;
-        self.mode2_interrupt = val & (1 << 5) != 0;
-        self.mode1_interrupt = val & (1 << 4) != 0;
-        self.mode0_interrupt = val & (1 << 3) != 0;
+
+    pub fn set_lyc_interrupt(&mut self, val: u8) {
+      self.lyc_interrupt = val != 0
     }
-    fn read(&self, lcd_y_eq_compare: bool) -> u8 {
-        let mut out = 1 << 7;
-        if self.lyc_interrupt {
-            out |= 1 << 6;
-        }
-        if self.mode2_interrupt {
-            out |= 1 << 5;
-        }
-        if self.mode1_interrupt {
-            out |= 1 << 4;
-        }
-        if self.mode0_interrupt {
-            out |= 1 << 3;
-        }
-        if lcd_y_eq_compare {
-            out |= 1 << 2;
-        }
-        match self.mode {
-            Mode::Mode0 => out |= 0,
-            Mode::Mode1 => out |= 1,
-            Mode::Mode2 => out |= 2,
-            Mode::Mode3 => out |= 3,
-        }
-        out
+    pub fn set_mode0_interrupt(&mut self, val: u8) {
+      self.mode0_interrupt = val != 0
+    }
+    pub fn set_mode1_interrupt(&mut self, val: u8) {
+      self.mode1_interrupt = val != 0
+    }
+    pub fn set_mode2_interrupt(&mut self, val: u8) {
+      self.mode2_interrupt = val != 0
+    }
+    pub fn lyc_interrupt(&self) -> u8 {
+      self.lyc_interrupt as u8
+    }
+    pub fn mode0_interrupt(&self) -> u8 {
+      self.mode0_interrupt as u8
+    }
+    pub fn mode1_interrupt(&self) -> u8 {
+      self.mode1_interrupt as u8
+    }
+    pub fn mode2_interrupt(&self) -> u8 {
+      self.mode2_interrupt as u8
+    }
+    pub fn mode(&self) -> u8 {
+      self.mode
     }
 }
 
@@ -135,8 +119,8 @@ pub struct Ppu {
     // 0xFE00-0xFE9F
     oam: [u8; 0x100],
     // I/O registers
-    control: LCDControl,
-    status: LCDStatus,
+    pub control: LCDControl,
+    pub status: LCDStatus,
     scroll_x: u8,
     scroll_y: u8,
     lcd_y: u8,
@@ -149,14 +133,6 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    // LCD control
-    const LCDC: u16 = 0xFF40;
-    // LCD status register (read/write bits 2-6, RO bits 0-1)
-    const STAT: u16 = 0xFF41;
-    // Scroll Y/X: Specifies the position of the background window. Changes take effect at end of
-    // current scanline.
-    const SCY: u16 = 0xFF42;
-    const SCX: u16 = 0xFF43;
     // LCD Y coordinate, current line being rendered. Read-only.
     const LY: u16 = 0xFF44;
     // LCD Y compare. When equal to LY, bit in STAT is set, and (if enabled), STAT interrupt
@@ -221,10 +197,11 @@ impl Ppu {
     pub fn step(&mut self, interrupt: &mut Interrupt, dma: &mut Dma) {
         if self.control.contains(LCDControl::ENABLE) {
             match self.status.mode {
-                Mode::Mode0 => self.mode0(interrupt),
-                Mode::Mode1 => self.mode1(interrupt),
-                Mode::Mode2 => self.mode2(interrupt),
-                Mode::Mode3 => self.mode3(),
+                0 => self.mode0(interrupt),
+                1 => self.mode1(interrupt),
+                2 => self.mode2(interrupt),
+                3 => self.mode3(),
+                _ => unreachable!(),
             }
         }
         if dma.enabled {
@@ -245,26 +222,23 @@ impl Ppu {
     pub fn write(&mut self, address: u16, val: u8) {
         match address {
             addr @ 0x8000..=0x9FFF => match self.status.mode {
-                Mode::Mode0 | Mode::Mode1 | Mode::Mode2 => {
+                HBLANK_MODE | VBLANK_MODE | OAM_MODE => {
                     if let Some(old) = self.vram.get_mut((addr as usize) - 0x8000) {
                         *old = val;
                     }
                 }
-                Mode::Mode3 => {}
+                RENDER_MODE => {}
+                _ => unreachable!(),
             },
             addr @ 0xFE00..=0xFE9F => match self.status.mode {
-                Mode::Mode0 | Mode::Mode1 => {
+                HBLANK_MODE | VBLANK_MODE => {
                     if let Some(old) = self.oam.get_mut((addr as usize) - 0xFE00) {
                         *old = val;
                     }
                 }
-                Mode::Mode2 | Mode::Mode3 => {}
+                OAM_MODE | RENDER_MODE => {}
+                _ => unreachable!(),
             },
-            Self::LCDC => self.control.write(val),
-            Self::STAT => self.status.write(val),
-            // TODO(slongfield): Figure out when SCY and SCX are writeable.
-            Self::SCY => self.scroll_y = val,
-            Self::SCX => self.scroll_x = val,
             Self::LY => {}
             Self::LYC => self.lcd_y_compare = val,
             Self::DMA => {
@@ -273,18 +247,14 @@ impl Ppu {
                 self.dma.dest = 0xFE00;
             }
             Self::BGP => self.bg_palette = val,
-            0xFF40..=0xFF4B => info!(
-                "Attempted to write to unhandled PPU register: {:#04X}",
-                address
-            ),
-            addr => panic!("Attempted to write PPU with unmapped addr: {:#x}", addr),
+            addr => info!("Attempted to write PPU with unmapped addr: {:#x}", addr),
         }
     }
 
     pub fn read(&self, address: u16) -> u8 {
         match address {
             addr @ 0x8000..=0x9FFF => match self.status.mode {
-                Mode::Mode0 | Mode::Mode1 | Mode::Mode2 => {
+                HBLANK_MODE | VBLANK_MODE | OAM_MODE => {
                     if let Some(val) = self.vram.get((addr as usize) - 0x8000) {
                         *val
                     } else {
@@ -292,10 +262,11 @@ impl Ppu {
                         0
                     }
                 }
-                Mode::Mode3 => 0xFF,
+                RENDER_MODE => 0xFF,
+                _ => unreachable!(),
             },
             addr @ 0xFE00..=0xFE9F => match self.status.mode {
-                Mode::Mode0 | Mode::Mode1 => {
+                HBLANK_MODE | VBLANK_MODE => {
                     if let Some(val) = self.oam.get((addr as usize) - 0xFE00) {
                         *val
                     } else {
@@ -303,29 +274,44 @@ impl Ppu {
                         0
                     }
                 }
-                Mode::Mode2 | Mode::Mode3 => 0xFF,
+                OAM_MODE | RENDER_MODE => 0xFF,
+                _ => unreachable!(),
             },
-            Self::LCDC => self.control.read(),
-            Self::STAT => self.status.read(self.lcd_y == self.lcd_y_compare),
-            Self::SCY => self.scroll_y,
-            Self::SCX => self.scroll_x,
             Self::LY => self.lcd_y,
             Self::LYC => self.lcd_y_compare,
             Self::BGP => self.bg_palette,
-            0xFF40..=0xFF4B => {
+            addr => {
                 info!(
                     "Attempted to read from unhandled PPU register: {:#04X}",
-                    address
+                    addr
                 );
                 0
             }
-            addr => panic!("Attempted to write PPU with unmapped addr: {:#x}", addr),
         }
     }
 
     pub fn go_fast(&mut self) {
         self.wait_for_frame = false;
     }
+
+    pub fn set_scroll_y(&mut self, val: u8) {
+      self.scroll_y = val
+    }
+
+
+    pub fn set_scroll_x(&mut self, val: u8) {
+      self.scroll_x = val
+    }
+
+    pub fn scroll_y(&self) -> u8 {
+      self.scroll_y
+    }
+
+    pub fn scroll_x(&self) -> u8 {
+      self.scroll_x
+    }
+
+
 
     // HBlank, do nothing.
     fn mode0(&mut self, interrupt: &mut Interrupt) {
@@ -335,9 +321,9 @@ impl Ppu {
             self.update_ly_interrupt(interrupt);
             self.mode_cycle = 0;
             if self.lcd_y == VISIBLE_COUNT {
-                self.status.mode = Mode::Mode1;
+                self.status.mode = VBLANK_MODE;
             } else {
-                self.status.mode = Mode::Mode2;
+                self.status.mode = OAM_MODE;
             }
             self.update_mode_interrupt(interrupt);
         }
@@ -353,7 +339,7 @@ impl Ppu {
             // TODO(slongfield): Compare LCD Y
             if self.lcd_y == LINE_COUNT {
                 self.lcd_y = 0;
-                self.status.mode = Mode::Mode2;
+                self.status.mode = OAM_MODE;
                 self.update_mode_interrupt(interrupt);
 
                 self.display.show();
@@ -391,7 +377,7 @@ impl Ppu {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE2_CYCLES {
             self.mode_cycle = 0;
-            self.status.mode = Mode::Mode3;
+            self.status.mode = RENDER_MODE;
             self.update_mode_interrupt(interrupt);
         }
     }
@@ -400,7 +386,7 @@ impl Ppu {
     fn mode3(&mut self) {
         // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
         // to draw 160 pixels.
-        // TODO(slongfield): Model pixel fifo
+        // TODO(slongfield): Model pixel fifo, or just draw a full line at a time.
         if self.mode_cycle % 2 == 0 {
             let mut pixels: [u8; 8] = [0; 8];
             let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
@@ -469,40 +455,40 @@ impl Ppu {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE3_CYCLES {
             self.mode_cycle = 0;
-            self.status.mode = Mode::Mode0;
+            self.status.mode = HBLANK_MODE;
         }
     }
 
+    pub fn lcd_y_compare(&self) -> bool {
+      self.lcd_y == self.lcd_y_compare
+    }
+
     fn update_ly_interrupt(&mut self, interrupt: &mut Interrupt) {
-        if self.lcd_y == self.lcd_y_compare {
-            self.status.lyc_eq_ly = true;
-        } else {
-            self.status.lyc_eq_ly = false;
-        }
-        if self.status.lyc_interrupt {
+        if self.status.lyc_interrupt && self.lcd_y_compare() {
             interrupt.set_lcd_stat_trigger(1)
         }
     }
 
     fn update_mode_interrupt(&mut self, interrupt: &mut Interrupt) {
         match self.status.mode {
-            Mode::Mode0 => {
+            HBLANK_MODE => {
                 if self.status.mode0_interrupt {
                     interrupt.set_lcd_stat_trigger(1)
                 }
             }
-            Mode::Mode1 => {
+            VBLANK_MODE => {
                 if self.status.mode1_interrupt {
                     interrupt.set_lcd_stat_trigger(1)
                 }
                 interrupt.set_vblank_trigger(1)
             }
-            Mode::Mode2 => {
+            OAM_MODE => {
                 if self.status.mode2_interrupt {
                     interrupt.set_lcd_stat_trigger(1)
                 }
             }
-            Mode::Mode3 => {}
+            RENDER_MODE => {}
+            _ => unreachable!(),
         }
     }
 

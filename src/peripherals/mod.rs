@@ -147,9 +147,18 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF44..=0xFF4B => {
                     self.ppu.write(addr, val)
                 }
+                0xFF40 => self.ppu.control.set_control(val),
+                0xFF41 => write_reg!(val:
+                                     6..6 => self.ppu.status.set_lyc_interrupt,
+                                     5..5 => self.ppu.status.set_mode2_interrupt,
+                                     4..4 => self.ppu.status.set_mode1_interrupt,
+                                     3..3 => self.ppu.status.set_mode0_interrupt
+                ),
+                0xFF42 => self.ppu.set_scroll_y(val),
+                0xFF43 => self.ppu.set_scroll_x(val),
                 addr @ 0xA000..=0xBFFF
                     | addr @ 0xC000..=0xCFFF
                     | addr @ 0xD000..=0xDFFF
@@ -282,9 +291,20 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF44..=0xFF4B => {
                     self.ppu.read(addr)
                 }
+                0xFF40 => self.ppu.control.bits(),
+                0xFF41 => read_reg!(
+                    6..6 => self.ppu.status.lyc_interrupt,
+                    5..5 => self.ppu.status.mode2_interrupt,
+                    4..4 => self.ppu.status.mode1_interrupt,
+                    3..3 => self.ppu.status.mode0_interrupt,
+                    2..2 => self.ppu.lcd_y_compare,
+                    1..0 => self.ppu.status.mode
+                ),
+                0xFF42 => self.ppu.scroll_y(),
+                0xFF43 => self.ppu.scroll_x(),
                 addr @ 0xA000..=0xBFFF
                 | addr @ 0xC000..=0xCFFF
                 | addr @ 0xD000..=0xDFFF
