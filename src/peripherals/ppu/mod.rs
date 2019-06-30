@@ -183,6 +183,9 @@ impl Ppu {
     // Number of microseconds between frames.
     const INTERVAL: u64 = 16_666;
 
+    // DMA address
+    const DMA: u16 = 0xFF46;
+
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
             display: Box::new(sdl_display::SdlDisplay::new(video_subsystem)),
