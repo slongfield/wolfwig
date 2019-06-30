@@ -147,7 +147,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF44..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF46 => {
                     self.ppu.write(addr, val)
                 }
                 0xFF40 => self.ppu.control.set_control(val),
@@ -159,6 +159,28 @@ impl Peripherals {
                 ),
                 0xFF42 => self.ppu.set_scroll_y(val),
                 0xFF43 => self.ppu.set_scroll_x(val),
+                0xFF44 => self.ppu.set_lcd_y(val),
+                0xFF45 => self.ppu.set_lcd_y_compare(val),
+                0xFF47 => write_reg!(val:
+                                     7..6 => self.ppu.bg_palette.set_color3,
+                                     5..4 => self.ppu.bg_palette.set_color2,
+                                     3..2 => self.ppu.bg_palette.set_color1,
+                                     1..0 => self.ppu.bg_palette.set_color0
+                ),
+                0xFF48 => write_reg!(val:
+                                     7..6 => self.ppu.obj0_palette.set_color3,
+                                     5..4 => self.ppu.obj0_palette.set_color2,
+                                     3..2 => self.ppu.obj0_palette.set_color1,
+                                     1..0 => self.ppu.obj0_palette.set_color0
+                ),
+                0xFF49 => write_reg!(val:
+                                     7..6 => self.ppu.obj1_palette.set_color3,
+                                     5..4 => self.ppu.obj1_palette.set_color2,
+                                     3..2 => self.ppu.obj1_palette.set_color1,
+                                     1..0 => self.ppu.obj1_palette.set_color0
+                ),
+                0xFF4A => self.ppu.set_window_y(val),
+                0xFF4B => self.ppu.set_window_x(val),
                 addr @ 0xA000..=0xBFFF
                     | addr @ 0xC000..=0xCFFF
                     | addr @ 0xD000..=0xDFFF
@@ -291,7 +313,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF44..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF46 => {
                     self.ppu.read(addr)
                 }
                 0xFF40 => self.ppu.control.bits(),
@@ -305,6 +327,28 @@ impl Peripherals {
                 ),
                 0xFF42 => self.ppu.scroll_y(),
                 0xFF43 => self.ppu.scroll_x(),
+                0xFF44 => self.ppu.lcd_y(),
+                0xFF45 => self.ppu.lcd_y_compare(),
+                0xFF47 => read_reg!(
+                    7..6 => self.ppu.bg_palette.color3,
+                    5..4 => self.ppu.bg_palette.color2,
+                    3..2 => self.ppu.bg_palette.color1,
+                    1..0 => self.ppu.bg_palette.color0
+                ),
+                0xFF48 => read_reg!(
+                    7..6 => self.ppu.obj0_palette.color3,
+                    5..4 => self.ppu.obj0_palette.color2,
+                    3..2 => self.ppu.obj0_palette.color1,
+                    1..0 => self.ppu.obj0_palette.color0
+                ),
+                0xFF49 => read_reg!(
+                    7..6 => self.ppu.obj1_palette.color3,
+                    5..4 => self.ppu.obj1_palette.color2,
+                    3..2 => self.ppu.obj1_palette.color1,
+                    1..0 => self.ppu.obj1_palette.color0
+                ),
+                0xFF4A => self.ppu.window_y(),
+                0xFF4B => self.ppu.window_x(),
                 addr @ 0xA000..=0xBFFF
                 | addr @ 0xC000..=0xCFFF
                 | addr @ 0xD000..=0xDFFF

@@ -19,14 +19,14 @@ const MODE3_CYCLES: u8 = 43;
 
 bitflags! {
     pub struct LCDControl: u8 {
-        const ENABLE =        0b1000_0000;
+        const ENABLE =          0b1000_0000;
         const WINDOW_TILE_MAP = 0b0100_0000;
-        const WINDOW_DISPLAY = 0b0010_0000;
+        const WINDOW_DISPLAY =  0b0010_0000;
         const BG_TILE_SET =     0b0001_0000;
         const BG_TILE_MAP =     0b0000_1000;
-        const SPRITE_SIZE =    0b0000_0100;
-        const SPRITE_ENABLE =  0b0000_0010;
-        const BG_ENABLE =      0b0000_0001;
+        const SPRITE_SIZE =     0b0000_0100;
+        const SPRITE_ENABLE =   0b0000_0010;
+        const BG_ENABLE =       0b0000_0001;
     }
 }
 
@@ -108,6 +108,49 @@ impl Sprite {
     }
 }
 
+pub struct Palette {
+  color0: u8,
+  color1: u8,
+  color2: u8,
+  color3: u8
+}
+
+impl Palette {
+  fn new() -> Self {
+    Self{color0: 0,color1:0,color2:0,color3:0}
+  }
+  pub fn set_color0(&mut self, val: u8) {
+    self.color0 = val;
+  }
+  pub fn set_color1(&mut self, val: u8) {
+    self.color1 = val;
+  }
+
+  pub fn set_color2(&mut self, val: u8) {
+    self.color2 = val;
+  }
+
+  pub fn set_color3(&mut self, val: u8) {
+    self.color3 = val;
+  }
+
+
+  pub fn color0(&self) -> u8 { self.color0 }
+  pub fn color1(&self) -> u8 { self.color1 }
+  pub fn color2(&self) -> u8 { self.color2 }
+  pub fn color3(&self) -> u8 { self.color3 }
+
+  fn get_color(&self, key: u8) -> u8 {
+    match key {
+      0 => self.color0,
+      1 => self.color1,
+      2 => self.color2,
+      3 => self.color3,
+      _ => unreachable!(),
+    }
+  }
+}
+
 // Currently, this just displays the tile data for the background tiles.
 pub struct Ppu {
     display: Box<display::Display>,
@@ -123,9 +166,13 @@ pub struct Ppu {
     pub status: LCDStatus,
     scroll_x: u8,
     scroll_y: u8,
+    window_x: u8,
+    window_y: u8,
     lcd_y: u8,
     lcd_y_compare: u8,
-    bg_palette: u8,
+    pub bg_palette: Palette,
+    pub obj0_palette: Palette,
+    pub obj1_palette: Palette,
     mode_cycle: u8,
     sprites: Vec<Sprite>,
     before: Instant,
@@ -133,24 +180,6 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    // LCD Y coordinate, current line being rendered. Read-only.
-    const LY: u16 = 0xFF44;
-    // LCD Y compare. When equal to LY, bit in STAT is set, and (if enabled), STAT interrupt
-    // fires.
-    const LYC: u16 = 0xFF45;
-    // Writes to this register starts a DMA transfer from the address written to OAM.
-    const DMA: u16 = 0xFF46;
-    // Background palette data
-    const BGP: u16 = 0xFF47;
-    // Object Palette 0 Data
-    // const OBP0: u16 = 0xFF48;
-    // Object Palette 1 Data
-    // const OBP1: u16 = 0xFF49;
-    // Window Y and X position. This is an alternate background that is displayed above the
-    // current background if visible.
-    // const WY: u16 = 0xFF4A;
-    // const WX: u16 = 0xFF4B;
-
     // Number of microseconds between frames.
     const INTERVAL: u64 = 16_666;
 
@@ -163,10 +192,14 @@ impl Ppu {
             lcd_y: 0,
             scroll_x: 0,
             scroll_y: 0,
+            window_x: 0,
+            window_y: 0,
             lcd_y_compare: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
-            bg_palette: 0,
+            bg_palette: Palette::new(),
+            obj0_palette: Palette::new(),
+            obj1_palette: Palette::new(),
             mode_cycle: 0,
             sprites: vec![],
             before: Instant::now(),
@@ -177,16 +210,20 @@ impl Ppu {
     pub fn new_fake() -> Self {
         Self {
             display: Box::new(fake_display::FakeDisplay::new()),
-            wait_for_frame: false,
+            wait_for_frame: true,
             vram: [0; 0x2000],
             oam: [0; 0x100],
             lcd_y: 0,
             scroll_x: 0,
             scroll_y: 0,
+            window_x: 0,
+            window_y: 0,
             lcd_y_compare: 0,
             control: LCDControl::new(),
             status: LCDStatus::new(),
-            bg_palette: 0,
+            bg_palette: Palette::new(),
+            obj0_palette: Palette::new(),
+            obj1_palette: Palette::new(),
             mode_cycle: 0,
             sprites: vec![],
             before: Instant::now(),
@@ -219,6 +256,14 @@ impl Ppu {
         }
     }
 
+    pub fn set_lcd_y(&mut self, val: u8) {
+      self.lcd_y = val & 0
+    }
+
+    pub fn lcd_y(&self) -> u8 {
+      self.lcd_y
+    }
+
     pub fn write(&mut self, address: u16, val: u8) {
         match address {
             addr @ 0x8000..=0x9FFF => match self.status.mode {
@@ -239,14 +284,11 @@ impl Ppu {
                 OAM_MODE | RENDER_MODE => {}
                 _ => unreachable!(),
             },
-            Self::LY => {}
-            Self::LYC => self.lcd_y_compare = val,
             Self::DMA => {
                 self.dma.enabled = true;
                 self.dma.source = u16::from(val) * 0x100;
                 self.dma.dest = 0xFE00;
             }
-            Self::BGP => self.bg_palette = val,
             addr => info!("Attempted to write PPU with unmapped addr: {:#x}", addr),
         }
     }
@@ -277,9 +319,6 @@ impl Ppu {
                 OAM_MODE | RENDER_MODE => 0xFF,
                 _ => unreachable!(),
             },
-            Self::LY => self.lcd_y,
-            Self::LYC => self.lcd_y_compare,
-            Self::BGP => self.bg_palette,
             addr => {
                 info!(
                     "Attempted to read from unhandled PPU register: {:#04X}",
@@ -298,7 +337,6 @@ impl Ppu {
       self.scroll_y = val
     }
 
-
     pub fn set_scroll_x(&mut self, val: u8) {
       self.scroll_x = val
     }
@@ -311,9 +349,24 @@ impl Ppu {
       self.scroll_x
     }
 
+    pub fn set_window_y(&mut self, val: u8) {
+      self.window_y = val
+    }
+
+    pub fn set_window_x(&mut self, val: u8) {
+      self.window_x = val
+    }
+
+    pub fn window_y(&self) -> u8 {
+      self.window_y
+    }
+
+    pub fn window_x(&self) -> u8 {
+      self.window_x
+    }
 
 
-    // HBlank, do nothing.
+    // HBlank, don't render anything, go to VBLANK or OAM mode at end of cycle.
     fn mode0(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE0_CYCLES {
@@ -329,14 +382,13 @@ impl Ppu {
         }
     }
 
-    // VBlank, do nothing
+    // VBlank, don't render anything, go to OAM mode at end of cycles.
     fn mode1(&mut self, interrupt: &mut Interrupt) {
         self.mode_cycle += 1;
         if self.mode_cycle == MODE1_CYCLES {
             self.lcd_y += 1;
             self.update_ly_interrupt(interrupt);
             self.mode_cycle = 0;
-            // TODO(slongfield): Compare LCD Y
             if self.lcd_y == LINE_COUNT {
                 self.lcd_y = 0;
                 self.status.mode = OAM_MODE;
@@ -355,7 +407,7 @@ impl Ppu {
         }
     }
 
-    // OAM read, build sprite list.
+    // OAM mode, build sprite list.
     fn mode2(&mut self, interrupt: &mut Interrupt) {
         if self.mode_cycle == 0 {
             self.sprites = vec![];
@@ -382,7 +434,7 @@ impl Ppu {
         }
     }
 
-    // Draw mode!
+    // Render mode, draw a line.
     fn mode3(&mut self) {
         // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
         // to draw 160 pixels.
@@ -407,6 +459,7 @@ impl Ppu {
                 let bg_tileset_start = if self.control.contains(LCDControl::BG_TILE_SET) {
                     0x0
                 } else {
+                    // TODO(slongfield): In this mode, also need to use signed addresses.
                     0x800
                 };
                 let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
@@ -414,7 +467,7 @@ impl Ppu {
                 let lower_byte = self.vram[addr + 1];
                 for (index, pixel) in (0..8).rev().enumerate() {
                     let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                    pixels[index] = self.bg_color(pixel);
+                    pixels[index] = self.bg_palette.get_color(pixel);
                 }
             }
             // TODO(slongfield): Get window pixels.
@@ -433,7 +486,7 @@ impl Ppu {
                         for (index, pixel) in (0..8).rev().enumerate() {
                             let pixel =
                                 (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                            pixels[index] = self.bg_color(pixel);
+                            pixels[index] = self.bg_palette.get_color(pixel);
                         }
                     }
                 }
@@ -459,12 +512,20 @@ impl Ppu {
         }
     }
 
-    pub fn lcd_y_compare(&self) -> bool {
+    pub fn check_lcd_y_compare(&self) -> bool {
       self.lcd_y == self.lcd_y_compare
     }
 
+    pub fn set_lcd_y_compare(&mut self, val: u8) {
+      self.lcd_y_compare = val
+    }
+
+    pub fn lcd_y_compare(&self) -> u8 {
+      self.lcd_y_compare
+    }
+
     fn update_ly_interrupt(&mut self, interrupt: &mut Interrupt) {
-        if self.status.lyc_interrupt && self.lcd_y_compare() {
+        if self.status.lyc_interrupt && self.check_lcd_y_compare() {
             interrupt.set_lcd_stat_trigger(1)
         }
     }
@@ -490,15 +551,5 @@ impl Ppu {
             RENDER_MODE => {}
             _ => unreachable!(),
         }
-    }
-
-    fn bg_color(&self, index: u8) -> u8 {
-        let shade = match index {
-            0b00 => self.bg_palette,
-            0b01 => self.bg_palette >> 2,
-            0b10 => self.bg_palette >> 4,
-            _ => self.bg_palette >> 6,
-        };
-        shade & 0x3
     }
 }
