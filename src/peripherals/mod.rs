@@ -13,7 +13,7 @@ mod ppu;
 mod serial;
 mod timer;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dma {
     pub enabled: bool,
     pub source: u16,
@@ -147,7 +147,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF46 => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
                     self.ppu.write(addr, val)
                 }
                 0xFF40 => self.ppu.control.set_control(val),
@@ -161,6 +161,7 @@ impl Peripherals {
                 0xFF43 => self.ppu.set_scroll_x(val),
                 0xFF44 => self.ppu.set_lcd_y(val),
                 0xFF45 => self.ppu.set_lcd_y_compare(val),
+                0xFF46 => self.ppu.set_dma(val),
                 0xFF47 => write_reg!(val:
                                      7..6 => self.ppu.bg_palette.set_color3,
                                      5..4 => self.ppu.bg_palette.set_color2,
@@ -313,7 +314,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF46 => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
                     self.ppu.read(addr)
                 }
                 0xFF40 => self.ppu.control.bits(),
@@ -329,6 +330,7 @@ impl Peripherals {
                 0xFF43 => self.ppu.scroll_x(),
                 0xFF44 => self.ppu.lcd_y(),
                 0xFF45 => self.ppu.lcd_y_compare(),
+                0xFF46 => 0xFF, // TODO(slongfield): What does DMA read do?
                 0xFF47 => read_reg!(
                     7..6 => self.ppu.bg_palette.color3,
                     5..4 => self.ppu.bg_palette.color2,

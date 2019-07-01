@@ -183,9 +183,6 @@ impl Ppu {
     // Number of microseconds between frames.
     const INTERVAL: u64 = 16_666;
 
-    // DMA address
-    const DMA: u16 = 0xFF46;
-
     pub fn new_sdl(video_subsystem: sdl2::VideoSubsystem) -> Self {
         Self {
             display: Box::new(sdl_display::SdlDisplay::new(video_subsystem)),
@@ -252,9 +249,7 @@ impl Ppu {
             }
         }
         if self.dma.enabled {
-            dma.enabled = true;
-            dma.source = self.dma.source;
-            dma.dest = self.dma.dest;
+            *dma = self.dma.clone();
             self.dma = Dma::new();
         }
     }
@@ -265,6 +260,12 @@ impl Ppu {
 
     pub fn lcd_y(&self) -> u8 {
       self.lcd_y
+    }
+
+    pub fn set_dma(&mut self, val: u8) {
+            self.dma.enabled = true;
+                self.dma.source = u16::from(val) * 0x100;
+                self.dma.dest = 0xFE00;
     }
 
     pub fn write(&mut self, address: u16, val: u8) {
@@ -287,11 +288,6 @@ impl Ppu {
                 OAM_MODE | RENDER_MODE => {}
                 _ => unreachable!(),
             },
-            Self::DMA => {
-                self.dma.enabled = true;
-                self.dma.source = u16::from(val) * 0x100;
-                self.dma.dest = 0xFE00;
-            }
             addr => info!("Attempted to write PPU with unmapped addr: {:#x}", addr),
         }
     }

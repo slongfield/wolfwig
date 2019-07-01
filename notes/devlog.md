@@ -6,12 +6,11 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 This is the section for active TODOs.
 
-* Set up all registers with the new format.
- * PPU registers
 * Support windows on PPU
  * Tennis ROM
  * Tenis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
    not working?
+* Basic APU
 
 
 ## Ideas
@@ -42,6 +41,10 @@ This is the section for active TODOs.
   * Could also generate some documentation for me that I like more than the existing documentation.
 
 ## Log
+
+### 2019-07-01
+
+ * Finally done with that refactor. Now I want to do another one.
 
 ### 2019-06-29
 
