@@ -8,10 +8,9 @@ mod display;
 mod fake_display;
 mod sdl_display;
 
-const CYCLE_LEN: usize = 70224;
-
 const LINE_COUNT: u8 = 154;
 const VISIBLE_COUNT: u8 = 144;
+const PIXEL_WIDTH: usize = 160;
 const MODE0_CYCLES: u8 = 51;
 const MODE1_CYCLES: u8 = 114; // cycles per line
 const MODE2_CYCLES: u8 = 20;
@@ -38,6 +37,22 @@ impl LCDControl {
     pub fn set_control(&mut self, val: u8) {
         self.remove(Self::all());
         self.insert(Self::from_bits_truncate(val));
+    }
+
+    fn bg_tile_map(&self) -> usize {
+        if self.contains(LCDControl::BG_TILE_MAP) {
+            0x1C00
+        } else {
+            0x1800
+        }
+    }
+
+    fn bg_tile_addr(&self, tile_number: u8) -> usize {
+        if self.contains(LCDControl::BG_TILE_SET) || tile_number > 127 {
+            usize::from(tile_number) * 16
+        } else {
+            usize::from(0x1000 + usize::from(tile_number) * 16)
+        }
     }
 }
 
@@ -66,89 +81,124 @@ impl LCDStatus {
     }
 
     pub fn set_lyc_interrupt(&mut self, val: u8) {
-      self.lyc_interrupt = val != 0
+        self.lyc_interrupt = val != 0
     }
     pub fn set_mode0_interrupt(&mut self, val: u8) {
-      self.mode0_interrupt = val != 0
+        self.mode0_interrupt = val != 0
     }
     pub fn set_mode1_interrupt(&mut self, val: u8) {
-      self.mode1_interrupt = val != 0
+        self.mode1_interrupt = val != 0
     }
     pub fn set_mode2_interrupt(&mut self, val: u8) {
-      self.mode2_interrupt = val != 0
+        self.mode2_interrupt = val != 0
     }
     pub fn lyc_interrupt(&self) -> u8 {
-      self.lyc_interrupt as u8
+        self.lyc_interrupt as u8
     }
     pub fn mode0_interrupt(&self) -> u8 {
-      self.mode0_interrupt as u8
+        self.mode0_interrupt as u8
     }
     pub fn mode1_interrupt(&self) -> u8 {
-      self.mode1_interrupt as u8
+        self.mode1_interrupt as u8
     }
     pub fn mode2_interrupt(&self) -> u8 {
-      self.mode2_interrupt as u8
+        self.mode2_interrupt as u8
     }
     pub fn mode(&self) -> u8 {
-      self.mode
+        self.mode
+    }
+}
+
+pub struct Palette {
+    color0: u8,
+    color1: u8,
+    color2: u8,
+    color3: u8,
+}
+
+impl Palette {
+    fn new() -> Self {
+        Self {
+            color0: 0,
+            color1: 0,
+            color2: 0,
+            color3: 0,
+        }
+    }
+    pub fn set_color0(&mut self, val: u8) {
+        self.color0 = val;
+    }
+    pub fn set_color1(&mut self, val: u8) {
+        self.color1 = val;
+    }
+
+    pub fn set_color2(&mut self, val: u8) {
+        self.color2 = val;
+    }
+
+    pub fn set_color3(&mut self, val: u8) {
+        self.color3 = val;
+    }
+
+    pub fn color0(&self) -> u8 {
+        self.color0
+    }
+    pub fn color1(&self) -> u8 {
+        self.color1
+    }
+    pub fn color2(&self) -> u8 {
+        self.color2
+    }
+    pub fn color3(&self) -> u8 {
+        self.color3
+    }
+
+    fn get_color(&self, key: u8) -> u8 {
+        match key {
+            0 => self.color0,
+            1 => self.color1,
+            2 => self.color2,
+            3 => self.color3,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Tile {
+    data: Vec<u8>,
+}
+
+impl Tile {
+    fn new(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+
+    fn pixel(&self, x: usize, y: usize) -> u8 {
+        let x = 7 - x;
+        let high_bit = (self.data[y * 2 + 1] & (1 << x)) >> x;
+        let low_bit = (self.data[y * 2] & (1 << x)) >> x;
+        (high_bit << 1) | low_bit
     }
 }
 
 #[derive(Debug)]
 struct Sprite {
-    y: u8,
-    x: u8,
-    tile: u8,
+    pub tile: Tile,
+    x: usize,
+    y: usize,
     flags: u8,
 }
 
 impl Sprite {
-    fn new(y: u8, x: u8, tile: u8, flags: u8) -> Self {
-        Self { y, x, tile, flags }
+    fn new(tile: Tile, x: u8, y: u8, flags: u8) -> Self {
+        Self {
+            tile: tile,
+            x: usize::from(x),
+            y: usize::from(y),
+            flags: flags,
+        }
     }
-}
-
-pub struct Palette {
-  color0: u8,
-  color1: u8,
-  color2: u8,
-  color3: u8
-}
-
-impl Palette {
-  fn new() -> Self {
-    Self{color0: 0,color1:0,color2:0,color3:0}
-  }
-  pub fn set_color0(&mut self, val: u8) {
-    self.color0 = val;
-  }
-  pub fn set_color1(&mut self, val: u8) {
-    self.color1 = val;
-  }
-
-  pub fn set_color2(&mut self, val: u8) {
-    self.color2 = val;
-  }
-
-  pub fn set_color3(&mut self, val: u8) {
-    self.color3 = val;
-  }
-
-
-  pub fn color0(&self) -> u8 { self.color0 }
-  pub fn color1(&self) -> u8 { self.color1 }
-  pub fn color2(&self) -> u8 { self.color2 }
-  pub fn color3(&self) -> u8 { self.color3 }
-
-  fn get_color(&self, key: u8) -> u8 {
-    match key {
-      0 => self.color0,
-      1 => self.color1,
-      2 => self.color2,
-      3 => self.color3,
-      _ => unreachable!(),
-    }
-  }
 }
 
 // Currently, this just displays the tile data for the background tiles.
@@ -237,7 +287,7 @@ impl Ppu {
                 0 => self.mode0(interrupt),
                 1 => self.mode1(interrupt),
                 2 => self.mode2(interrupt),
-                3 => self.mode3(),
+                3 => self.render_line(),
                 _ => unreachable!(),
             }
         }
@@ -255,17 +305,17 @@ impl Ppu {
     }
 
     pub fn set_lcd_y(&mut self, val: u8) {
-      self.lcd_y = val & 0
+        self.lcd_y = val & 0
     }
 
     pub fn lcd_y(&self) -> u8 {
-      self.lcd_y
+        self.lcd_y
     }
 
     pub fn set_dma(&mut self, val: u8) {
-            self.dma.enabled = true;
-                self.dma.source = u16::from(val) * 0x100;
-                self.dma.dest = 0xFE00;
+        self.dma.enabled = true;
+        self.dma.source = u16::from(val) * 0x100;
+        self.dma.dest = 0xFE00;
     }
 
     pub fn write(&mut self, address: u16, val: u8) {
@@ -333,37 +383,36 @@ impl Ppu {
     }
 
     pub fn set_scroll_y(&mut self, val: u8) {
-      self.scroll_y = val
+        self.scroll_y = val
     }
 
     pub fn set_scroll_x(&mut self, val: u8) {
-      self.scroll_x = val
+        self.scroll_x = val
     }
 
     pub fn scroll_y(&self) -> u8 {
-      self.scroll_y
+        self.scroll_y
     }
 
     pub fn scroll_x(&self) -> u8 {
-      self.scroll_x
+        self.scroll_x
     }
 
     pub fn set_window_y(&mut self, val: u8) {
-      self.window_y = val
+        self.window_y = val
     }
 
     pub fn set_window_x(&mut self, val: u8) {
-      self.window_x = val
+        self.window_x = val
     }
 
     pub fn window_y(&self) -> u8 {
-      self.window_y
+        self.window_y
     }
 
     pub fn window_x(&self) -> u8 {
-      self.window_x
+        self.window_x
     }
-
 
     // HBlank, don't render anything, go to VBLANK or OAM mode at end of cycle.
     fn mode0(&mut self, interrupt: &mut Interrupt) {
@@ -413,17 +462,27 @@ impl Ppu {
             for entry in self.oam.chunks(4) {
                 let y = *entry.get(0).unwrap_or(&0);
                 let x = *entry.get(1).unwrap_or(&0);
-                let tile = *entry.get(2).unwrap_or(&0);
+                let tile_number = *entry.get(2).unwrap_or(&0);
+                // TODO(slongfield): Handle double-tall tiles.
+                let tile = Tile::new(
+                    (0..16)
+                        .map(|offset| {
+                            *self
+                                .vram
+                                .get(usize::from(tile_number) * 16 + offset)
+                                .unwrap_or(&0)
+                        })
+                        .collect::<Vec<u8>>(),
+                );
                 let flags = *entry.get(3).unwrap_or(&0);
                 // Only add the sprite if it'll be visibile.
-                // TODO(slongfield): Handle double-tall sprites.
                 if self.lcd_y + 8 < y && self.lcd_y + 16 >= y {
-                    self.sprites.push(Sprite::new(y, x, tile, flags));
+                    self.sprites.push(Sprite::new(tile, x, y, flags));
                 }
             }
-            // Reverse sort by X, since smallest X gets highest priority, so want to draw it
-            // last.
-            self.sprites.sort_unstable_by(|a, b| (b.x).cmp(&a.x));
+            // Sort by X, since smallest X gets highest priority, so want to draw it
+            // first.
+            self.sprites.sort_unstable_by(|a, b| (a.x).cmp(&b.x));
         }
         self.mode_cycle += 1;
         if self.mode_cycle == MODE2_CYCLES {
@@ -434,93 +493,103 @@ impl Ppu {
     }
 
     // Render mode, draw a line.
-    fn mode3(&mut self) {
-        // Only draw every other cycle, since we're drawing 8 pixels per cycle, but have 40 cycles
-        // to draw 160 pixels.
-        // TODO(slongfield): Model pixel fifo, or just draw a full line at a time.
-        if self.mode_cycle % 2 == 0 {
-            let mut pixels: [u8; 8] = [0; 8];
-            let y = u16::from(self.scroll_y.wrapping_add(self.lcd_y));
-            let x = u16::from(self.scroll_x.wrapping_add(self.mode_cycle * 4));
-            let y_tile = y / 8;
-            let x_tile = x / 8;
-            // Get background pixels.
-            {
-                let tile_map_start: u16 = if self.control.contains(LCDControl::BG_TILE_MAP) {
-                    0x1C00
-                } else {
-                    0x1800
-                };
-                let tile = self
-                    .vram
-                    .get((tile_map_start + y_tile * 32 + x_tile) as usize)
-                    .unwrap_or(&0);
-                let bg_tileset_start = if self.control.contains(LCDControl::BG_TILE_SET) {
-                    0x0
-                } else {
-                    // TODO(slongfield): In this mode, also need to use signed addresses.
-                    0x800
-                };
-                let addr = usize::from(bg_tileset_start + u16::from(*tile) * 16 + (y % 8) * 2);
-                let upper_byte = self.vram[addr];
-                let lower_byte = self.vram[addr + 1];
-                for (index, pixel) in (0..8).rev().enumerate() {
-                    let pixel = (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                    pixels[index] = self.bg_palette.get_color(pixel);
-                }
+    fn render_line(&mut self) {
+        if self.mode_cycle != 0 {
+            self.mode_cycle += 1;
+            if self.mode_cycle == MODE3_CYCLES {
+                self.mode_cycle = 0;
+                self.status.mode = HBLANK_MODE;
             }
-            // TODO(slongfield): Get window pixels.
-            if self.control.contains(LCDControl::SPRITE_ENABLE) {
-                // TODO(slongfield): Need to handle background pixel pallete data later, since
-                // background 00 should draw over sprite pixels. Thankfully can ignore priority
-                // for Tetris.
-                let lcd_x = self.mode_cycle * 4;
-                for sprite in &self.sprites {
-                    // TODO(slongfield): Handle inverted sprites and double-tall sprites.
-                    let tile_y = 7 - u16::from((sprite.y - self.lcd_y + 15) % 8);
-                    if lcd_x + 8 <= sprite.x && lcd_x + 16 > sprite.x {
-                        let addr = usize::from(u16::from(sprite.tile) * 16 + tile_y * 2);
-                        let upper_byte = self.vram[addr];
-                        let lower_byte = self.vram[addr + 1];
-                        for (index, pixel) in (0..8).rev().enumerate() {
-                            let pixel =
-                                (((upper_byte >> pixel) & 1) << 1) | ((lower_byte >> pixel) & 1);
-                            pixels[index] = self.bg_palette.get_color(pixel);
+            return;
+        }
+        let mut pixels: [u8; PIXEL_WIDTH] = [0; PIXEL_WIDTH];
+        // Set up the background.
+        {
+            let bg_y = usize::from(self.scroll_y.wrapping_add(self.lcd_y));
+            let y_offset = (bg_y / 8) * 32;
+            let tiles = (0..32)
+                .map(|line_offset| {
+                    *self
+                        .vram
+                        .get(self.control.bg_tile_map() + y_offset + line_offset)
+                        .unwrap_or(&0)
+                })
+                .map(|tile_number| {
+                    let base_addr = self.control.bg_tile_addr(tile_number);
+                    Tile::new(
+                        (0..16)
+                            .map(|offset| *self.vram.get(base_addr + offset).unwrap_or(&0))
+                            .collect::<Vec<u8>>(),
+                    )
+                })
+                .collect::<Vec<Tile>>();
+            for offset in 0..160 {
+                let x = usize::from(self.scroll_x.wrapping_add(offset));
+                let tile = tiles.get(x / 8).unwrap();
+                pixels[usize::from(offset)] = tile.pixel(x % 8, bg_y % 8);
+            }
+        }
+        // Set up the window.
+        // Set up the sprites and select colors.
+        {
+            if !self.control.contains(LCDControl::SPRITE_ENABLE) || self.sprites.len() == 0 {
+                for pixel in pixels.iter_mut() {
+                    *pixel = self.bg_palette.get_color(*pixel);
+                }
+            } else {
+                let mut sprite_offset = 0;
+                for (index, pixel) in pixels.iter_mut().enumerate() {
+                    if self.control.contains(LCDControl::SPRITE_ENABLE)
+                        && sprite_offset <= self.sprites.len()
+                        && sprite_offset < 9
+                    {
+                        if self.sprites.len() > (sprite_offset + 1)
+                            && (index + 8) >= usize::from(self.sprites[sprite_offset + 1].x)
+                        {
+                            sprite_offset += 1;
                         }
+                        let sprite = self.sprites.get(sprite_offset).unwrap();
+                        if sprite.x > index && sprite.x <= index + 8 {
+                            // TODO(slongfield): Handle double-tall sprites.
+                            let tile_y = (usize::from(self.lcd_y) - sprite.y + 16) % 8;
+                            let tile_x = (index - sprite.x) % 8;
+                            // TODO(slongfield): Handle flags.
+                            *pixel = self.bg_palette.get_color(sprite.tile.pixel(tile_x, tile_y));
+                        } else {
+                            *pixel = self.bg_palette.get_color(*pixel);
+                        }
+                    } else {
+                        *pixel = self.bg_palette.get_color(*pixel);
                     }
                 }
             }
-            for (index, pixel) in pixels.iter().enumerate() {
-                // TODO(slongfield): Adjust to taste.
-                let color = match pixel {
-                    0b00 => display::Color::RGB(155, 188, 15),
-                    0b01 => display::Color::RGB(48, 98, 48),
-                    0b10 => display::Color::RGB(139, 172, 15),
-                    _ => display::Color::RGB(15, 56, 15),
-                };
-                let x = (self.mode_cycle) * 4 + (index as u8);
-                self.display
-                    .draw_pixel(x as usize, self.lcd_y as usize, color)
-                    .expect("Could not draw rectangle");
-            }
+        }
+        // Draw the line.
+        for (index, pixel) in pixels.iter().enumerate() {
+            // TODO(slongfield): Adjust to taste.
+            let color = match pixel {
+                0b00 => display::Color::RGB(155, 188, 15),
+                0b01 => display::Color::RGB(48, 98, 48),
+                0b10 => display::Color::RGB(139, 172, 15),
+                _ => display::Color::RGB(15, 56, 15),
+            };
+            self.display
+                .draw_pixel(index as usize, self.lcd_y as usize, color)
+                .expect("Could not draw rectangle");
         }
         self.mode_cycle += 1;
-        if self.mode_cycle == MODE3_CYCLES {
-            self.mode_cycle = 0;
-            self.status.mode = HBLANK_MODE;
-        }
     }
 
     pub fn check_lcd_y_compare(&self) -> bool {
-      self.lcd_y == self.lcd_y_compare
+        self.lcd_y == self.lcd_y_compare
     }
 
     pub fn set_lcd_y_compare(&mut self, val: u8) {
-      self.lcd_y_compare = val
+        self.lcd_y_compare = val
     }
 
     pub fn lcd_y_compare(&self) -> u8 {
-      self.lcd_y_compare
+        self.lcd_y_compare
     }
 
     fn update_ly_interrupt(&mut self, interrupt: &mut Interrupt) {
