@@ -18,7 +18,7 @@ This is the section for active TODOs.
 
 ### Scripting
 
-* I should add a scripting interfacea
+* I should add a scripting interface
 * romhacking.net
  * Looks like colorizing games is a popular hack.
 
