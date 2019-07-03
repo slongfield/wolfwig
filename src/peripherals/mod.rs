@@ -123,7 +123,7 @@ impl Peripherals {
 
     pub fn step(&mut self) {
         self.apu.step();
-        self.joypad.step();
+        self.joypad.step(&mut self.interrupt);
         self.ppu.step(&mut self.interrupt, &mut self.dma);
         self.serial.step();
         self.timer.step(&mut self.interrupt);
@@ -147,9 +147,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
-                    self.ppu.write(addr, val)
-                }
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => self.ppu.write(addr, val),
                 0xFF40 => self.ppu.control.set_control(val),
                 0xFF41 => write_reg!(val:
                                      6..6 => self.ppu.status.set_lyc_interrupt,
@@ -183,20 +181,20 @@ impl Peripherals {
                 0xFF4A => self.ppu.set_window_y(val),
                 0xFF4B => self.ppu.set_window_x(val),
                 addr @ 0xA000..=0xBFFF
-                    | addr @ 0xC000..=0xCFFF
-                    | addr @ 0xD000..=0xDFFF
-                    | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
-                    // Echo RAM, maps back onto 0xC000-0XDDFF
-                    addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
-                    addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
-                    // I/O registers.
-                    0xFF00 => {
-                        write_reg!(val:
-                                   5..5 => self.joypad.set_select_button,
-                                   4..4 => self.joypad.set_select_direction
-                        );
-                        self.joypad.update()
-                    }
+                | addr @ 0xC000..=0xCFFF
+                | addr @ 0xD000..=0xDFFF
+                | addr @ 0xFF80..=0xFFFE => self.mem.write(addr, val),
+                // Echo RAM, maps back onto 0xC000-0XDDFF
+                addr @ 0xE000..=0xFDFF => self.write(addr - 0x2000, val),
+                addr @ 0xFEA0..=0xFEFF => info!("Write to unmapped memory region: {:#04X}", addr),
+                // I/O registers.
+                0xFF00 => {
+                    write_reg!(val:
+                               5..5 => self.joypad.set_select_button,
+                               4..4 => self.joypad.set_select_direction
+                    );
+                    self.joypad.step(&mut self.interrupt);
+                }
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),
                 0xFF04 => self.timer.set_divider(),
@@ -261,9 +259,10 @@ impl Peripherals {
                                      6..6 => self.apu.channel_three.frequency.set_use_counter,
                                      2..0 => self.apu.channel_three.frequency.set_frequency_high
                 ),
-                addr @ 0xFF30..=0xFF3F => {
-                    self.apu.channel_three.set_table(usize::from(0xFF30 - addr), val)
-                },
+                addr @ 0xFF30..=0xFF3F => self
+                    .apu
+                    .channel_three
+                    .set_table(usize::from(0xFF30 - addr), val),
                 0xFF20 => write_reg!(val:
                                      5..0 => self.apu.channel_four.set_length
                 ),
@@ -289,7 +288,7 @@ impl Peripherals {
                 0xFF26 => write_reg!(val:
                                      7..7 => self.apu.control.set_enable
                 ),
-                0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
+                0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF7F => {
                     info!("Write to unmapped I/O reg!")
                 }
                 0xFFFF => write_reg!(val:
@@ -314,9 +313,7 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
-                    self.ppu.read(addr)
-                }
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => self.ppu.read(addr),
                 0xFF40 => self.ppu.control.bits(),
                 0xFF41 => read_reg!(
                     6..6 => self.ppu.status.lyc_interrupt,
@@ -459,7 +456,13 @@ impl Peripherals {
                     1..1 => self.apu.channel_two.active,
                     0..0 => self.apu.channel_one.active
                 ),
-                0xFF03 | 0xFF08..=0xFF0E | 0xFF15 | 0xFF1F | 0xFF27..=0xFF2F | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
+                0xFF03
+                | 0xFF08..=0xFF0E
+                | 0xFF15
+                | 0xFF1F
+                | 0xFF27..=0xFF2F
+                | 0xFF4C..=0xFF4F
+                | 0xFF50..=0xFF7F => {
                     info!("Read from unmapped I/O reg!");
                     0xFF
                 }
@@ -471,7 +474,6 @@ impl Peripherals {
                     1..1 => self.interrupt.lcd_stat_enable,
                     0..0 => self.interrupt.vblank_enable
                 ),
-                addr => unreachable!("Attempted to read from {:#4x}, should be unreachable.", addr),
             }
         }
     }

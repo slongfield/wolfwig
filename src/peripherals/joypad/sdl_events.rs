@@ -22,6 +22,7 @@ impl SdlEvents {
 impl EventHandler for SdlEvents {
     // TODO(slongfield): This is still the root of performance problems.
     fn get_state(&mut self) -> State {
+        self.state.keydown = false;
         for event in self.events.poll_iter() {
             // TODO(slongfield): Make this configurable. Currently optimized for my
             // Kinesis keyboard, but that's somewhat of an uncommon layout.

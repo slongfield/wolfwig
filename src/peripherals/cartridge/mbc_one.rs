@@ -20,7 +20,7 @@ impl MbcOne {
             rom,
             bootrom_disabled: false,
             ram: vec![0; 0x2000],
-            rom_bank: 0,
+            rom_bank: 1,
             ram_bank: 0,
             rom_ram_mode: false,
         }
@@ -35,10 +35,10 @@ impl Cartridge for MbcOne {
             }
             addr @ 0..=0x3FFF => *self.rom.get(addr as usize).unwrap_or(&0xFF),
             addr @ 0x4000..=0x7FFF => {
-                let final_addr = addr + u16::from(self.rom_bank - 1) * 0x4000;
+                let final_addr = addr + u16::from(self.rom_bank) * 0x4000;
                 *self.rom.get(final_addr as usize).unwrap_or(&0xFF)
             }
-            0xFF50 => self.bootrom_disabled as u8,
+            0xFF50 => 0xFF,
             _ => 0xFF,
         }
     }
@@ -49,7 +49,7 @@ impl Cartridge for MbcOne {
                 if val == 0 {
                     self.rom_bank = 1;
                 } else {
-                    self.rom_bank = val;
+                    self.rom_bank = val - 1;
                 }
             }
             addr @ 0x4000..=0x5FFF => println!("Write of {} to ram bank {}", val, addr),

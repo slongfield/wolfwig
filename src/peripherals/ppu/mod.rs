@@ -178,7 +178,7 @@ impl Tile {
         let x = 7 - x;
         let high_bit = (self.data[y * 2 + 1] & (1 << x)) >> x;
         let low_bit = (self.data[y * 2] & (1 << x)) >> x;
-        (high_bit << 1) | low_bit
+        (low_bit << 1) | high_bit
     }
 }
 
@@ -492,6 +492,17 @@ impl Ppu {
         }
     }
 
+    fn get_sprite_pixel(&self, sprite: &Sprite, x: usize, y: u8) -> u8 {
+        if sprite.x > x && sprite.x <= x + 8 {
+            // TODO(slongfield): Handle double-tall sprites.
+            let tile_y = (usize::from(y) - sprite.y + 16) % 8;
+            let tile_x = (x - sprite.x) % 8;
+            sprite.tile.pixel(tile_x, tile_y)
+        } else {
+            u8::from(0)
+        }
+    }
+
     // Render mode, draw a line.
     fn render_line(&mut self) {
         if self.mode_cycle != 0 {
@@ -537,24 +548,16 @@ impl Ppu {
                     *pixel = self.bg_palette.get_color(*pixel);
                 }
             } else {
-                let mut sprite_offset = 0;
                 for (index, pixel) in pixels.iter_mut().enumerate() {
-                    if self.control.contains(LCDControl::SPRITE_ENABLE)
-                        && sprite_offset <= self.sprites.len()
-                        && sprite_offset < 9
-                    {
-                        if self.sprites.len() > (sprite_offset + 1)
-                            && (index + 8) >= usize::from(self.sprites[sprite_offset + 1].x)
+                    if self.control.contains(LCDControl::SPRITE_ENABLE) {
+                        if let Some(sprite) = self
+                            .sprites
+                            .iter()
+                            .find(|s| self.get_sprite_pixel(s, index, self.lcd_y) != 0)
                         {
-                            sprite_offset += 1;
-                        }
-                        let sprite = self.sprites.get(sprite_offset).unwrap();
-                        if sprite.x > index && sprite.x <= index + 8 {
-                            // TODO(slongfield): Handle double-tall sprites.
-                            let tile_y = (usize::from(self.lcd_y) - sprite.y + 16) % 8;
-                            let tile_x = (index - sprite.x) % 8;
-                            // TODO(slongfield): Handle flags.
-                            *pixel = self.bg_palette.get_color(sprite.tile.pixel(tile_x, tile_y));
+                            *pixel = self
+                                .bg_palette
+                                .get_color(self.get_sprite_pixel(&sprite, index, self.lcd_y));
                         } else {
                             *pixel = self.bg_palette.get_color(*pixel);
                         }

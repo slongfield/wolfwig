@@ -1,4 +1,5 @@
 ///! Joypad is the joypad peripheral
+use peripherals::interrupt::Interrupt;
 use sdl2::EventPump;
 use std::process;
 
@@ -44,11 +45,11 @@ impl Joypad {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self, interrupt: &mut Interrupt) {
         self.counter += 1;
         if self.counter == Self::UPDATE_INTERVAL {
             debug!("Updating state.");
-            self.update();
+            self.update(interrupt);
         }
     }
 
@@ -74,7 +75,7 @@ impl Joypad {
         self.state
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, interrupt: &mut Interrupt) {
         if self.events.get_state().keydown {}
         let state = self.events.get_state();
 
@@ -83,7 +84,7 @@ impl Joypad {
         }
 
         if state.keydown {
-            // TODO(slongfield): Set interrupt.
+            interrupt.set_joypad_trigger(1);
         }
 
         self.state = 0;

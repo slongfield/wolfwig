@@ -25,7 +25,7 @@ impl Cartridge for RomCart {
             addr @ 0x000..=0x100 if !self.bootrom_disabled => {
                 *self.bootrom.get(addr as usize).unwrap_or(&0xFF)
             }
-            0xFF50 => self.bootrom_disabled as u8,
+            0xFF50 => 0xFF,
             addr => *self.rom.get(addr as usize).unwrap_or(&0xFF),
         }
     }
