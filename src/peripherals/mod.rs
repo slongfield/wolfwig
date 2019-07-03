@@ -13,7 +13,7 @@ mod ppu;
 mod serial;
 mod timer;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dma {
     pub enabled: bool,
     pub source: u16,
@@ -147,9 +147,41 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.write(addr, val),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
                     self.ppu.write(addr, val)
                 }
+                0xFF40 => self.ppu.control.set_control(val),
+                0xFF41 => write_reg!(val:
+                                     6..6 => self.ppu.status.set_lyc_interrupt,
+                                     5..5 => self.ppu.status.set_mode2_interrupt,
+                                     4..4 => self.ppu.status.set_mode1_interrupt,
+                                     3..3 => self.ppu.status.set_mode0_interrupt
+                ),
+                0xFF42 => self.ppu.set_scroll_y(val),
+                0xFF43 => self.ppu.set_scroll_x(val),
+                0xFF44 => self.ppu.set_lcd_y(val),
+                0xFF45 => self.ppu.set_lcd_y_compare(val),
+                0xFF46 => self.ppu.set_dma(val),
+                0xFF47 => write_reg!(val:
+                                     7..6 => self.ppu.bg_palette.set_color3,
+                                     5..4 => self.ppu.bg_palette.set_color2,
+                                     3..2 => self.ppu.bg_palette.set_color1,
+                                     1..0 => self.ppu.bg_palette.set_color0
+                ),
+                0xFF48 => write_reg!(val:
+                                     7..6 => self.ppu.obj0_palette.set_color3,
+                                     5..4 => self.ppu.obj0_palette.set_color2,
+                                     3..2 => self.ppu.obj0_palette.set_color1,
+                                     1..0 => self.ppu.obj0_palette.set_color0
+                ),
+                0xFF49 => write_reg!(val:
+                                     7..6 => self.ppu.obj1_palette.set_color3,
+                                     5..4 => self.ppu.obj1_palette.set_color2,
+                                     3..2 => self.ppu.obj1_palette.set_color1,
+                                     1..0 => self.ppu.obj1_palette.set_color0
+                ),
+                0xFF4A => self.ppu.set_window_y(val),
+                0xFF4B => self.ppu.set_window_x(val),
                 addr @ 0xA000..=0xBFFF
                     | addr @ 0xC000..=0xCFFF
                     | addr @ 0xD000..=0xDFFF
@@ -249,8 +281,14 @@ impl Peripherals {
                                      7..7 => self.apu.channel_four.set_start,
                                      6..6 => self.apu.channel_four.set_stop_on_length
                 ),
-
-                0xFF24..=0xFF26 => {} // self.apu.write(addr, val),
+                0xFF24 => write_reg!(val:
+                                     6..4 => self.apu.control.volume.set_left,
+                                     2..0 => self.apu.control.volume.set_right
+                ),
+                0xFF25 => self.apu.control.channel_enable.set_enable(val),
+                0xFF26 => write_reg!(val:
+                                     7..7 => self.apu.control.set_enable
+                ),
                 0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Write to unmapped I/O reg!")
                 }
@@ -276,9 +314,43 @@ impl Peripherals {
         } else {
             match address {
                 addr @ 0x0000..=0x7FFF | addr @ 0xFF50 => self.cartridge.read(addr),
-                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F | addr @ 0xFF40..=0xFF4B => {
+                addr @ 0x8000..=0x9FFF | addr @ 0xFE00..=0xFE9F => {
                     self.ppu.read(addr)
                 }
+                0xFF40 => self.ppu.control.bits(),
+                0xFF41 => read_reg!(
+                    6..6 => self.ppu.status.lyc_interrupt,
+                    5..5 => self.ppu.status.mode2_interrupt,
+                    4..4 => self.ppu.status.mode1_interrupt,
+                    3..3 => self.ppu.status.mode0_interrupt,
+                    2..2 => self.ppu.lcd_y_compare,
+                    1..0 => self.ppu.status.mode
+                ),
+                0xFF42 => self.ppu.scroll_y(),
+                0xFF43 => self.ppu.scroll_x(),
+                0xFF44 => self.ppu.lcd_y(),
+                0xFF45 => self.ppu.lcd_y_compare(),
+                0xFF46 => 0xFF, // TODO(slongfield): What does DMA read do?
+                0xFF47 => read_reg!(
+                    7..6 => self.ppu.bg_palette.color3,
+                    5..4 => self.ppu.bg_palette.color2,
+                    3..2 => self.ppu.bg_palette.color1,
+                    1..0 => self.ppu.bg_palette.color0
+                ),
+                0xFF48 => read_reg!(
+                    7..6 => self.ppu.obj0_palette.color3,
+                    5..4 => self.ppu.obj0_palette.color2,
+                    3..2 => self.ppu.obj0_palette.color1,
+                    1..0 => self.ppu.obj0_palette.color0
+                ),
+                0xFF49 => read_reg!(
+                    7..6 => self.ppu.obj1_palette.color3,
+                    5..4 => self.ppu.obj1_palette.color2,
+                    3..2 => self.ppu.obj1_palette.color1,
+                    1..0 => self.ppu.obj1_palette.color0
+                ),
+                0xFF4A => self.ppu.window_y(),
+                0xFF4B => self.ppu.window_x(),
                 addr @ 0xA000..=0xBFFF
                 | addr @ 0xC000..=0xCFFF
                 | addr @ 0xD000..=0xDFFF
@@ -375,10 +447,21 @@ impl Peripherals {
                 0xFF23 => read_reg!(
                     6..6 => self.apu.channel_four.stop_on_length
                 ),
-                0xFF24..=0xFF26 => 0xFF, // self.apu.write(addr, val),
-                0xFF03 | 0xFF08..=0xFF0E | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
+                0xFF24 => read_reg!(
+                    6..4 => self.apu.control.volume.left,
+                    2..0 => self.apu.control.volume.right
+                ),
+                0xFF25 => self.apu.control.channel_enable.enable(),
+                0xFF26 => read_reg!(
+                    7..7 => self.apu.control.enable,
+                    3..3 => self.apu.channel_four.active,
+                    2..2 => self.apu.channel_three.active,
+                    1..1 => self.apu.channel_two.active,
+                    0..0 => self.apu.channel_one.active
+                ),
+                0xFF03 | 0xFF08..=0xFF0E | 0xFF15 | 0xFF1F | 0xFF27..=0xFF2F | 0xFF4C..=0xFF4F | 0xFF50..=0xFF79 => {
                     info!("Read from unmapped I/O reg!");
-                    0
+                    0xFF
                 }
                 0xFFFF => read_reg!(
                     7..5 => self.interrupt.unused,
@@ -388,7 +471,7 @@ impl Peripherals {
                     1..1 => self.interrupt.lcd_stat_enable,
                     0..0 => self.interrupt.vblank_enable
                 ),
-                _ => 0,
+                addr => unreachable!("Attempted to read from {:#4x}, should be unreachable.", addr),
             }
         }
     }

@@ -6,12 +6,11 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 This is the section for active TODOs.
 
-* Set up all registers with the new format.
- * PPU registers
 * Support windows on PPU
  * Tennis ROM
  * Tenis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
    not working?
+* Basic APU
 
 
 ## Ideas
@@ -33,7 +32,28 @@ This is the section for active TODOs.
 
 * Can the APU output MIDI directly?
 
+### State
+
+* Currently, the state is distributed throughout the peripherals. Would it make more sense if we put
+  all of the state configuration into a YAML file, and then generated a state object that could be
+  used everywhere?
+  * `build.rs` gives control over the build process, could do this there.
+  * Could also generate some documentation for me that I like more than the existing documentation.
+
 ## Log
+
+### 2019-07-01
+
+ * Finally done with that refactor. Now I want to do another one.
+
+### 2019-06-29
+
+ * More registers.
+   * I already dislike this scheme. Better than what we were doing before, but the encapsulation
+     will make some of the flexability I want to add harder to implement.
+   * Want to get it working before I try something different, though.
+ * Got past level 10 on Tetris and saw the rocket. The sprites were messed up, so only half of the
+   rocket was properly loaded.
 
 ### 2019-06-19
 
