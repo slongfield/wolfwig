@@ -42,6 +42,10 @@ This is the section for active TODOs.
 
 ## Log
 
+### 2019-07-04
+
+ * PPU window
+
 ### 2019-07-03
 
  * Working on PPU.

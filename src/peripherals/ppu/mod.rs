@@ -20,7 +20,7 @@ bitflags! {
     pub struct LCDControl: u8 {
         const ENABLE =          0b1000_0000;
         const WINDOW_TILE_MAP = 0b0100_0000;
-        const WINDOW_DISPLAY =  0b0010_0000;
+        const WINDOW_ENABLE =   0b0010_0000;
         const BG_TILE_SET =     0b0001_0000;
         const BG_TILE_MAP =     0b0000_1000;
         const SPRITE_SIZE =     0b0000_0100;
@@ -41,6 +41,14 @@ impl LCDControl {
 
     fn bg_tile_map(&self) -> usize {
         if self.contains(LCDControl::BG_TILE_MAP) {
+            0x1C00
+        } else {
+            0x1800
+        }
+    }
+
+    fn window_tile_map(&self) -> usize {
+        if self.contains(LCDControl::WINDOW_TILE_MAP) {
             0x1C00
         } else {
             0x1800
@@ -558,6 +566,33 @@ impl Ppu {
             }
         }
         // Set up the window.
+        if self.control.contains(LCDControl::WINDOW_ENABLE) && self.lcd_y > self.window_y {
+            let w_y = usize::from(self.lcd_y.wrapping_sub(self.window_y));
+            let y_offset = (w_y / 8) * 32;
+            let tiles = (0..32)
+                .map(|line_offset| {
+                    *self
+                        .vram
+                        .get(self.control.window_tile_map() + y_offset + line_offset)
+                        .unwrap_or(&0)
+                })
+                .map(|tile_number| {
+                    let base_addr = self.control.bg_tile_addr(tile_number);
+                    Tile::new(
+                        (0..16)
+                            .map(|offset| *self.vram.get(base_addr + offset).unwrap_or(&0))
+                            .collect::<Vec<u8>>(),
+                    )
+                })
+                .collect::<Vec<Tile>>();
+            for offset in 0..160 {
+                if offset > (self.window_x - 8) {
+                    let x = usize::from(offset.wrapping_sub(self.window_x - 8));
+                    let tile = tiles.get(x / 8).unwrap();
+                    pixels[usize::from(offset)] = tile.pixel(x % 8, w_y % 8);
+                }
+            }
+        }
         // Set up the sprites and select colors.
         {
             if !self.control.contains(LCDControl::SPRITE_ENABLE) || self.sprites.len() == 0 {

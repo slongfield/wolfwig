@@ -193,7 +193,7 @@ impl Peripherals {
                                5..5 => self.joypad.set_select_button,
                                4..4 => self.joypad.set_select_direction
                     );
-                    self.joypad.step(&mut self.interrupt);
+                    self.joypad.update(&mut self.interrupt);
                 }
                 0xFF01 => self.serial.set_data(val),
                 0xFF02 => self.serial.set_start((1 << 7) & val != 0),

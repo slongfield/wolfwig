@@ -22,7 +22,6 @@ impl SdlEvents {
 impl EventHandler for SdlEvents {
     // TODO(slongfield): This is still the root of performance problems.
     fn get_state(&mut self) -> State {
-        self.state.keydown = false;
         for event in self.events.poll_iter() {
             // TODO(slongfield): Make this configurable. Currently optimized for my
             // Kinesis keyboard, but that's somewhat of an uncommon layout.
@@ -35,6 +34,7 @@ impl EventHandler for SdlEvents {
                     ..
                 } => {
                     let mut set_keydown = true;
+                    debug!("Got keydown {:?}", code);
                     match code {
                         Keycode::Escape => self.state.shutdown = true,
                         Keycode::W => self.state.up = true,
@@ -54,17 +54,20 @@ impl EventHandler for SdlEvents {
                 SdlEvent::KeyUp {
                     keycode: Some(code),
                     ..
-                } => match code {
-                    Keycode::W => self.state.up = false,
-                    Keycode::A => self.state.left = false,
-                    Keycode::S => self.state.down = false,
-                    Keycode::D => self.state.right = false,
-                    Keycode::J => self.state.b = false,
-                    Keycode::K => self.state.a = false,
-                    Keycode::Backspace => self.state.select = false,
-                    Keycode::Space => self.state.start = false,
-                    _ => {}
-                },
+                } => {
+                    debug!("Got keyup {:?}", code);
+                    match code {
+                        Keycode::W => self.state.up = false,
+                        Keycode::A => self.state.left = false,
+                        Keycode::S => self.state.down = false,
+                        Keycode::D => self.state.right = false,
+                        Keycode::J => self.state.b = false,
+                        Keycode::K => self.state.a = false,
+                        Keycode::Backspace => self.state.select = false,
+                        Keycode::Space => self.state.start = false,
+                        _ => {}
+                    }
+                }
                 _ => {}
             }
         }

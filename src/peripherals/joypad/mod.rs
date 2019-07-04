@@ -19,9 +19,9 @@ impl Joypad {
     // How frequenlty to check for new updates, in cycles. This is a janky hack, needed
     // because the
     // SDL event polling can't be moved to a different thread, and is kind of slow.
-    // TODO(slongfield): Figure out a beter solution. Maybe move _all_ of the SDL stuff into a
-    // separate thread?
-    const UPDATE_INTERVAL: usize = 1000;
+    // TODO(slongfield): Figure out a beter solution. Maybe move _all_ of the SDL
+    // stuff into a separate thread?
+    const UPDATE_INTERVAL: usize = 100;
 
     pub fn new_sdl(events: EventPump) -> Self {
         let events = Box::new(sdl_events::SdlEvents::new(events));
@@ -88,16 +88,17 @@ impl Joypad {
         }
 
         self.state = 0;
+        if !self.select_direction {
+            self.state |= u8::from(state.down) << 3;
+            self.state |= u8::from(state.up) << 2;
+            self.state |= u8::from(state.left) << 1;
+            self.state |= u8::from(state.right);
+        }
         if !self.select_button {
             self.state |= u8::from(state.start) << 3;
             self.state |= u8::from(state.select) << 2;
             self.state |= u8::from(state.b) << 1;
             self.state |= u8::from(state.a);
-        } else if !self.select_direction {
-            self.state |= u8::from(state.down) << 3;
-            self.state |= u8::from(state.up) << 2;
-            self.state |= u8::from(state.left) << 1;
-            self.state |= u8::from(state.right);
         }
         // It's active low, so invert
         self.state = !self.state;
