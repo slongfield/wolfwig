@@ -93,8 +93,7 @@ impl Joypad {
             self.state |= u8::from(state.select) << 2;
             self.state |= u8::from(state.b) << 1;
             self.state |= u8::from(state.a);
-        }
-        if !self.select_direction {
+        } else if !self.select_direction {
             self.state |= u8::from(state.down) << 3;
             self.state |= u8::from(state.up) << 2;
             self.state |= u8::from(state.left) << 1;

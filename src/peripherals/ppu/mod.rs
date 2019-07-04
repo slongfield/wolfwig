@@ -176,9 +176,18 @@ impl Tile {
 
     fn pixel(&self, x: usize, y: usize) -> u8 {
         let x = 7 - x;
-        let high_bit = (self.data[y * 2 + 1] & (1 << x)) >> x;
-        let low_bit = (self.data[y * 2] & (1 << x)) >> x;
-        (low_bit << 1) | high_bit
+        let high_bit = (self.data[y * 2] & (1 << x)) >> x;
+        let low_bit = (self.data[y * 2 + 1] & (1 << x)) >> x;
+        (high_bit << 1) | low_bit
+    }
+}
+
+bitflags! {
+    pub struct SpriteFlags: u8 {
+        const PRIORITY = 0b1000_0000;
+        const Y_FLIP   = 0b0100_0000;
+        const X_FLIP   = 0b0010_0000;
+        const PALETTE  = 0b0001_0000;
     }
 }
 
@@ -187,7 +196,7 @@ struct Sprite {
     pub tile: Tile,
     x: usize,
     y: usize,
-    flags: u8,
+    flags: SpriteFlags,
 }
 
 impl Sprite {
@@ -196,7 +205,26 @@ impl Sprite {
             tile: tile,
             x: usize::from(x),
             y: usize::from(y),
-            flags: flags,
+            flags: SpriteFlags::from_bits_truncate(flags),
+        }
+    }
+
+    fn get_pixel(&self, x: usize, y: u8) -> u8 {
+        if self.x > x && self.x <= x + 8 {
+            // TODO(slonddgfield): Handle double-tall selfs.
+            let tile_y = if self.flags.contains(SpriteFlags::Y_FLIP) {
+                7 - ((usize::from(y) - self.y + 16) % 8)
+            } else {
+                (usize::from(y) - self.y + 16) % 8
+            };
+            let tile_x = if self.flags.contains(SpriteFlags::X_FLIP) {
+                7 - (x - self.x) % 8
+            } else {
+                (x - self.x) % 8
+            };
+            self.tile.pixel(tile_x, tile_y)
+        } else {
+            u8::from(0)
         }
     }
 }
@@ -492,17 +520,6 @@ impl Ppu {
         }
     }
 
-    fn get_sprite_pixel(&self, sprite: &Sprite, x: usize, y: u8) -> u8 {
-        if sprite.x > x && sprite.x <= x + 8 {
-            // TODO(slongfield): Handle double-tall sprites.
-            let tile_y = (usize::from(y) - sprite.y + 16) % 8;
-            let tile_x = (x - sprite.x) % 8;
-            sprite.tile.pixel(tile_x, tile_y)
-        } else {
-            u8::from(0)
-        }
-    }
-
     // Render mode, draw a line.
     fn render_line(&mut self) {
         if self.mode_cycle != 0 {
@@ -553,11 +570,11 @@ impl Ppu {
                         if let Some(sprite) = self
                             .sprites
                             .iter()
-                            .find(|s| self.get_sprite_pixel(s, index, self.lcd_y) != 0)
+                            .find(|s| s.get_pixel(index, self.lcd_y) != 0)
                         {
                             *pixel = self
                                 .bg_palette
-                                .get_color(self.get_sprite_pixel(&sprite, index, self.lcd_y));
+                                .get_color(sprite.get_pixel(index, self.lcd_y));
                         } else {
                             *pixel = self.bg_palette.get_color(*pixel);
                         }

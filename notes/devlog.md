@@ -42,6 +42,10 @@ This is the section for active TODOs.
 
 ## Log
 
+### 2019-07-03
+
+ * Working on PPU.
+
 ### 2019-07-01
 
  * Finally done with that refactor. Now I want to do another one.
