@@ -192,10 +192,10 @@ impl Tile {
 
 bitflags! {
     pub struct SpriteFlags: u8 {
-        const PRIORITY = 0b1000_0000;
-        const Y_FLIP   = 0b0100_0000;
-        const X_FLIP   = 0b0010_0000;
-        const PALETTE  = 0b0001_0000;
+        const BG_PRIORITY = 0b1000_0000;
+        const Y_FLIP      = 0b0100_0000;
+        const X_FLIP      = 0b0010_0000;
+        const PALETTE     = 0b0001_0000;
     }
 }
 
@@ -204,7 +204,7 @@ struct Sprite {
     pub tile: Tile,
     x: usize,
     y: usize,
-    flags: SpriteFlags,
+    pub flags: SpriteFlags,
 }
 
 impl Sprite {
@@ -602,14 +602,23 @@ impl Ppu {
             } else {
                 for (index, pixel) in pixels.iter_mut().enumerate() {
                     if self.control.contains(LCDControl::SPRITE_ENABLE) {
+                        // Get first sprite with a non-zero pixel
                         if let Some(sprite) = self
                             .sprites
                             .iter()
                             .find(|s| s.get_pixel(index, self.lcd_y) != 0)
                         {
-                            *pixel = self
-                                .bg_palette
-                                .get_color(sprite.get_pixel(index, self.lcd_y));
+                            if !sprite.flags.contains(SpriteFlags::BG_PRIORITY) || *pixel == 0 {
+                                if sprite.flags.contains(SpriteFlags::PALETTE) {
+                                    *pixel = self
+                                        .obj1_palette
+                                        .get_color(sprite.get_pixel(index, self.lcd_y));
+                                } else {
+                                    *pixel = self
+                                        .obj0_palette
+                                        .get_color(sprite.get_pixel(index, self.lcd_y));
+                                }
+                            }
                         } else {
                             *pixel = self.bg_palette.get_color(*pixel);
                         }

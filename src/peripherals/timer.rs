@@ -32,6 +32,7 @@ impl Timer {
             self.counter = self.modulo;
             debug!("Setting off timer interrupt");
             interrupt.set_timer_trigger(1);
+            self.set_counter = false;
         }
         if self.start && self.increment_bit_unset() && self.prev_increment_bit {
             self.counter = self.counter.wrapping_add(1);

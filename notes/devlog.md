@@ -8,7 +8,7 @@ This is the section for active TODOs.
 
 * Support windows on PPU
  * Tennis ROM
- * Tenis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
+ * Tennis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
    not working?
 * Basic APU
 
@@ -45,6 +45,12 @@ This is the section for active TODOs.
 ### 2019-07-04
 
  * PPU window
+ * Problem with Super Mario World was overactive timer--apparently it sets a timer when it's
+   loading the first level, and waits for the interrupt. But if the interrupt keeps re-triggering,
+   it'll dump you back to the main screen. Seems like maybe the next interrupt is the level timer,
+   so you keep losing lives?
+   * Without sprite priority, you can see all the 'hidden' enemies :D
+   * Level 1-3 Piranha plants are 'in front' of the pipes.
 
 ### 2019-07-03
 
@@ -74,7 +80,7 @@ This is the section for active TODOs.
 ### 2019-05-28
 
 * Applying that new macro bit by bit.
-* Would be nice to have a macro to create getters and setters, but apparently can't concatinate
+* Would be nice to have a macro to create getters and setters, but apparently can't concatenate
   names together in macros. :/
 
 ### 2019-05-27
@@ -91,7 +97,7 @@ This is the section for active TODOs.
 
 * Starting to get back into this after the move. Next goal is to improve the register access by
   using a macro of some kind. Want to move the addressing out of individual modules.
-* Wrote a simple prototype in serial. Seems like it'll generalize eaisly. It does mean that the
+* Wrote a simple prototype in serial. Seems like it'll generalize easily. It does mean that the
   public API of each of the peripherals is a bit larger, and now the register map will happen in
   src/peripherals/mod.rs, but I think that makes more sense than happening in each file
   individually.
