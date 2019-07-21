@@ -6,11 +6,10 @@ These are raw notes and logs of what I was doing and what I was thinking at the 
 
 This is the section for active TODOs.
 
-* Support windows on PPU
- * Tennis ROM
- * Tennis and Mario seem to have bad lookups for their sprites. Relative addressing mode is probably
-   not working?
 * Basic APU
+* Double-tall sprites
+* APU ABC output
+* Generated state management
 
 
 ## Ideas
@@ -30,7 +29,8 @@ This is the section for active TODOs.
 
 #### Audio Processing Unit
 
-* Can the APU output MIDI directly?
+* Can the APU output notation?
+  * ABC notation language looks like it'd be the simplest.
 
 ### State
 
@@ -41,6 +41,12 @@ This is the section for active TODOs.
   * Could also generate some documentation for me that I like more than the existing documentation.
 
 ## Log
+
+### 2019-07-20
+
+ * Working on audio.
+ * When sending sterep audio to SDL2, it expects the channels to be interleaved, starting with
+   the left channel.
 
 ### 2019-07-04
 

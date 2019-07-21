@@ -81,7 +81,8 @@ impl Peripherals {
         let ppu = ppu::Ppu::new_sdl(video_subsystem);
         let events = sdl.event_pump().unwrap();
         let joypad = joypad::Joypad::new_sdl(events);
-        let apu = apu::Apu::new();
+        let audio_subsystem = sdl.audio().unwrap();
+        let apu = apu::Apu::new(audio_subsystem);
         let interrupt = interrupt::Interrupt::new();
         let timer = timer::Timer::new();
         let dma = Dma::new();
@@ -103,7 +104,7 @@ impl Peripherals {
     pub fn new_fake() -> Self {
         let ppu = ppu::Ppu::new_fake();
         let joypad = joypad::Joypad::new_fake();
-        let apu = apu::Apu::new();
+        let apu = apu::Apu::new_fake();
         let interrupt = interrupt::Interrupt::new();
         let timer = timer::Timer::new();
         let dma = Dma::new();
