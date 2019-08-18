@@ -97,15 +97,24 @@ pub struct Envelope {
     direction: bool,
     sweep: u8,
     modified: bool,
+    current_volume: u8,
+    since_last_update: time::Duration,
+    update_count: u8,
 }
 
 impl Envelope {
+    // The envelope filter updates once every 1/64 seconds.
+    const UPDATE_INTERVAL: time::Duration = time::Duration::from_millis(2000 / 64);
+
     fn new() -> Self {
         Self {
             initial_volume: 0,
             direction: false,
             sweep: 0,
             modified: false,
+            current_volume: 0xf,
+            since_last_update: time::Duration::from_millis(0),
+            update_count: 0,
         }
     }
 
@@ -120,6 +129,8 @@ impl Envelope {
     }
     pub fn set_initial_volume(&mut self, val: u8) {
         self.initial_volume = val;
+        self.current_volume = val;
+        self.update_count = 0;
         self.modified = true
     }
     pub fn set_direction(&mut self, val: u8) {
@@ -129,6 +140,34 @@ impl Envelope {
     pub fn set_sweep(&mut self, val: u8) {
         self.sweep = val;
         self.modified = true
+    }
+
+    pub fn update(&mut self, interval: time::Duration) {
+        self.since_last_update += interval;
+        if (self.since_last_update > Self::UPDATE_INTERVAL) {
+            if (self.sweep != 0 && self.update_count == self.sweep) {
+                if (self.direction) {
+                    self.current_volume += 1;
+                    if self.current_volume > 0xf {
+                        self.current_volume = 0xf;
+                    }
+                } else {
+                    self.current_volume = self.current_volume.saturating_sub(1);
+                }
+                self.update_count = 0;
+            } else if (self.sweep != 0) {
+                self.update_count += 1;
+            }
+            self.since_last_update -= Self::UPDATE_INTERVAL;
+        }
+    }
+
+    // Current output volume
+    pub fn volume(&self) -> f32 {
+        if (self.sweep == 0) {
+            return 1.0;
+        }
+        (self.current_volume as f32) / (16.0)
     }
 }
 
@@ -279,13 +318,16 @@ impl ChannelOne {
         }
         for _ in 0..nsamples {
             if self.phase <= self.length_pattern.duty_cycle() {
-                samples.push(1.0);
+                samples.push(self.envelope.volume());
             } else {
                 samples.push(0.0);
             }
             self.phase = (self.phase + phase_inc) % 1.0;
         }
         self.length_pattern.played_length += (nsamples as f32) / device_freq;
+        self.envelope.update(time::Duration::from_micros(
+            (((nsamples * 1_000_000) as f32) / device_freq) as u64,
+        ));
         samples
     }
 }
@@ -341,13 +383,16 @@ impl ChannelTwo {
         }
         for _ in 0..nsamples {
             if self.phase <= self.length_pattern.duty_cycle() {
-                samples.push(1.0);
+                samples.push(self.envelope.volume());
             } else {
                 samples.push(0.0);
             }
             self.phase = (self.phase + phase_inc) % 1.0;
         }
         self.length_pattern.played_length += (nsamples as f32) / device_freq;
+        self.envelope.update(time::Duration::from_micros(
+            (((nsamples * 1_000_000) as f32) / device_freq) as u64,
+        ));
         samples
     }
 }

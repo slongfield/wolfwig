@@ -237,7 +237,7 @@ impl Sprite {
     }
 }
 
-// Currently, this just displays the tile data for the background tiles.
+// Pixel processing unit.
 pub struct Ppu {
     display: Box<display::Display>,
     wait_for_frame: bool,

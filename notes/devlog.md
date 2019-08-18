@@ -42,6 +42,20 @@ This is the section for active TODOs.
 
 ## Log
 
+### 2019-08-17
+
+ * Updating rust and checking clippy
+ * More audio work
+   * Where did I leave off?
+   * Channel 1 and 2 make sound, but it sounds awful.
+     * Sweep and Envelope not yet implemented
+
+ * How does the envelope work? "Number of envelope sweep" is not super well-described. I have a
+    feeling it translates to speed somehow.
+ * PanDocs is lacking. Looking at LittleSound DJ documentation and Tutorials, if the second number
+   is smaller, the note is shorter, so I guess it's how fast the envelope changes?
+
+
 ### 2019-07-20
 
  * Working on audio.
