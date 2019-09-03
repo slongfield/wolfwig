@@ -20,8 +20,8 @@ impl NextOp {
     }
 }
 
-///! Emulation of the Sharp 8-bit LR25902 processor.
-pub struct LR25902 {
+///! Emulation of the Sharp 8-bit SM83 processor.
+pub struct SM83 {
     pub regs: Registers,
     next_op: NextOp,
     cycle: usize,
@@ -31,7 +31,7 @@ pub struct LR25902 {
     stopped: bool,
 }
 
-impl LR25902 {
+impl SM83 {
     pub fn new() -> Self {
         Self {
             regs: Registers::new(),
@@ -615,7 +615,7 @@ mod tests {
 
     #[test]
     fn rotate_left_carry() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0xFF);
@@ -638,7 +638,7 @@ mod tests {
 
     #[test]
     fn rotate_right() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0xFF);
@@ -659,7 +659,7 @@ mod tests {
 
     #[test]
     fn decrement_half_carry_test() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::A, 0);
@@ -681,7 +681,7 @@ mod tests {
 
     #[test]
     fn sub() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         let make_sub = |val| Alu8Op {
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn sbc() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         let make_sbc = |val| Alu8Op {
@@ -771,7 +771,7 @@ mod tests {
 
     #[test]
     fn alu16_add() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
 
         cpu.regs.set16(Reg16::HL, 0x0F00);
         cpu.regs.set16(Reg16::SP, 0x8000);
@@ -791,7 +791,7 @@ mod tests {
 
     #[test]
     fn alu16_move_and_add() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
 
         cpu.regs.set16(Reg16::HL, 0x4321);
         cpu.regs.set16(Reg16::SP, 0x1234);
@@ -807,7 +807,7 @@ mod tests {
 
     #[test]
     fn push_and_pop() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         cpu.regs.set16(Reg16::AF, 0x12FF);
@@ -846,7 +846,7 @@ mod tests {
 
     #[test]
     fn swap() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         cpu.regs.set8(Reg8::C, 0x12);
@@ -864,7 +864,7 @@ mod tests {
 
     #[test]
     fn decimal_adjust_after_add() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         let add = Alu8Op {
@@ -922,7 +922,7 @@ mod tests {
 
     #[test]
     fn decimal_adjust_after_sub() {
-        let mut cpu = LR25902::new();
+        let mut cpu = SM83::new();
         let mut mem = Peripherals::new_fake();
 
         let sub = Alu8Op {
