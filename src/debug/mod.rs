@@ -18,10 +18,13 @@ pub struct Debug {
     steps: u32,
     breakpoints: HashSet<u16>,
     verbose: bool,
+    frame: u32,
+    wait_for_frame: bool,
 }
 
 const HELP: &str = "Available commands:
  [n]ext n     -- Runs the next n instructions, default 1 if nothing is provided
+ [f]rame      -- Runs until the start of the next frame
  [b]reakpoint -- Sets a breakpoint
  [i]nfo       -- lists breakpoins
  [d]elete     -- deletes a breakpoint
@@ -64,6 +67,8 @@ impl Debug {
             steps: 0,
             breakpoints: HashSet::new(),
             verbose: false,
+            frame: 0,
+            wait_for_frame: false,
         }
     }
 
@@ -87,7 +92,10 @@ impl Debug {
                 "PC: 0x{:02X} Cycle: 0x{:04X} Op: {}",
                 self.pc, self.cycle, op
             );
-            if self.steps > 0 {
+            if (self.wait_for_frame && self.frame > self.wolfwig.peripherals.ppu.frame) {
+            } else if (self.wait_for_frame) {
+                self.wait_for_frame = false;
+            } else if self.steps > 0 {
                 self.steps -= 1;
             } else {
                 self.prompt()
@@ -118,6 +126,11 @@ impl Debug {
                     if let Some(steps) = next_as_int32(&mut split) {
                         self.steps = steps;
                     };
+                    break;
+                }
+                Some("f") | Some("frame") => {
+                    self.frame = self.wolfwig.peripherals.ppu.frame + 1;
+                    self.wait_for_frame = true;
                     break;
                 }
                 Some("b") | Some("breakpoint") => {
@@ -166,7 +179,13 @@ impl Debug {
                             }
                         }
                     },
-                    None => self.wolfwig.print_registers(),
+                    None => {
+                        self.wolfwig.print_registers();
+                        println!(
+                            "{} {} {}",
+                            self.wait_for_frame, self.frame, self.wolfwig.peripherals.ppu.frame
+                        )
+                    }
                 },
                 Some("v") | Some("verbose") => self.verbose = !self.verbose,
                 Some("q") | Some("quit") => process::exit(0),

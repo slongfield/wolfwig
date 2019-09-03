@@ -263,6 +263,7 @@ pub struct Ppu {
     sprites: Vec<Sprite>,
     before: Instant,
     dma: Dma,
+    pub frame: u32,
 }
 
 impl Ppu {
@@ -290,6 +291,7 @@ impl Ppu {
             sprites: vec![],
             before: Instant::now(),
             dma: Dma::new(),
+            frame: 0,
         }
     }
 
@@ -314,16 +316,17 @@ impl Ppu {
             sprites: vec![],
             before: Instant::now(),
             dma: Dma::new(),
+            frame: 0,
         }
     }
 
     pub fn step(&mut self, interrupt: &mut Interrupt, dma: &mut Dma) {
         if self.control.contains(LCDControl::ENABLE) {
             match self.status.mode {
-                0 => self.mode0(interrupt),
-                1 => self.mode1(interrupt),
-                2 => self.mode2(interrupt),
-                3 => self.render_line(),
+                HBLANK_MODE => self.mode0(interrupt),
+                VBLANK_MODE => self.mode1(interrupt),
+                OAM_MODE => self.mode2(interrupt),
+                RENDER_MODE => self.render_line(),
                 _ => unreachable!(),
             }
         }
@@ -487,6 +490,7 @@ impl Ppu {
                     }
                     self.before = now;
                 }
+                self.frame += 1;
             }
         }
     }

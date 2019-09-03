@@ -37,7 +37,7 @@ pub struct Peripherals {
     dma: Dma,
     interrupt: interrupt::Interrupt,
     joypad: joypad::Joypad,
-    ppu: ppu::Ppu,
+    pub ppu: ppu::Ppu,
     serial: serial::Serial,
     timer: timer::Timer,
 }

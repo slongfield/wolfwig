@@ -4,6 +4,7 @@ use peripherals::interrupt::Interrupt;
 // AntonioND. It should accurate represent the bugs in the DMG timer, but not accurately represent
 // the separate set of bugs in the CGB timer.
 // TODO(slongfield): Make a CGB timer, and write a bunch of testroms.
+#[derive(Debug)]
 pub struct Timer {
     divider: u16,
     counter: u8,
@@ -28,24 +29,27 @@ impl Timer {
     }
 
     pub fn step(&mut self, interrupt: &mut Interrupt) {
+        self.divider = self.divider.wrapping_add(4);
         if self.set_counter {
-            self.counter = self.modulo;
             debug!("Setting off timer interrupt");
-            interrupt.set_timer_trigger(1);
             self.set_counter = false;
+            interrupt.set_timer_trigger(1);
+            self.counter = self.modulo;
         }
-        if self.start && self.increment_bit_unset() && self.prev_increment_bit {
+        if self.start && self.increment_bit_set() && !self.prev_increment_bit {
             self.counter = self.counter.wrapping_add(1);
             if self.counter == 0 {
                 self.set_counter = true;
             }
         }
-        self.prev_increment_bit = !self.increment_bit_unset();
-        self.divider = self.divider.wrapping_add(4);
+        self.prev_increment_bit = self.increment_bit_set();
+        if self.start {
+            debug!("{:?}", self);
+        }
     }
 
     pub fn set_divider(&mut self) {
-        self.divider = 0;
+        self.divider = 4;
     }
 
     pub fn set_counter(&mut self, val: u8) {
@@ -77,7 +81,6 @@ impl Timer {
     }
 
     pub fn start(&self) -> u8 {
-        debug!("Starting counter");
         u8::from(self.start)
     }
 
@@ -85,14 +88,38 @@ impl Timer {
         self.input_clock
     }
 
-    fn increment_bit_unset(&self) -> bool {
+    fn increment_bit_set(&self) -> bool {
         let bit = match self.input_clock {
-            0b00 => 8,
-            0b01 => 2,
-            0b10 => 4,
-            0b11 => 6,
+            0b00 => 10,
+            0b01 => 4,
+            0b10 => 6,
+            0b11 => 8,
             _ => unreachable!(),
         };
-        self.divider & (1 << bit) == 0
+        self.divider & (1 << bit) != 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_update_time_clock_00() {
+        // The timer should update once every 1024 cycles (256 steps) after the div counter has
+        // been reset.
+        let mut timer = Timer::new();
+        let mut irq = Interrupt::new();
+
+        timer.set_divider();
+        timer.set_modulo(0);
+        timer.set_input_clock(0);
+        timer.set_start(1);
+
+        for _ in 0..511 {
+            timer.step(&mut irq);
+        }
+
+        assert_eq!(timer.counter(), 1);
     }
 }

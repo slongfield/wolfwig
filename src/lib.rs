@@ -20,7 +20,7 @@ mod util;
 ///! TODO(slongfield): Write some actual documentation.
 pub struct Wolfwig {
     pub peripherals: peripherals::Peripherals,
-    cpu: cpu::lr25902::SM83,
+    cpu: cpu::sm83::SM83,
 }
 
 impl Wolfwig {
@@ -29,7 +29,7 @@ impl Wolfwig {
 
         Ok(Self {
             peripherals,
-            cpu: cpu::lr25902::SM83::new(),
+            cpu: cpu::sm83::SM83::new(),
         })
     }
 
